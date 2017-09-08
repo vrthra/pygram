@@ -1,0 +1,14 @@
+select * from "someschema"."mytable" where id = 1
+select something from some_table where blah = 'thing' limit 15
+select * from employee_tbl
+select emp_id from employee_tbl
+select emp_id, last_name from employee_tbl
+select emp_id, last_name from employee_tbl where emp_id = '333333333'
+select emp_id, last_name from employee_tbl where city = 'indianapolis' order by emp_id
+select emp_id, last_name from employee_tbl where city = 'indianapolis' order by emp_id, last_name desc
+select emp_id, last_name from employee_tbl where city = 'indianapolis' order by 1
+select emp_id, last_name from employee_tbl where city = 'indianapolis' order by 2, 1
+select count(*) from table_name
+select count(*) from products_tbl
+select count(prod_id) from products_tbl
+select prod_desc, prod_desc product from products_tbl
