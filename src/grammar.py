@@ -17,14 +17,13 @@ class Tracer(object):
             for var in variables:
                 value = frame.f_locals[var]
                 # Save all non-trivial string values that also occur in the input
-                if type(value) == type('') and len(value) >= 2 and value in the_input:
+                if isinstance(value, str) and len(value) >= 2 and value in the_input:
                     the_values[var] = value
             return traceit
         return traceit
 
 class Grammar(object):
-    def __init__(self):
-        self.grammar = {}
+    def __init__(self): self.grammar = {}
 
     def __str__(self): return self.grammar_to_string(self.grammar)
 
@@ -33,11 +32,10 @@ class Grammar(object):
 
     def nonterminal(self, var): return "$" + var.upper()
 
-
     # Obtain a grammar for a specific input
-    def get_grammar(self, the_input, the_values):
+    def get_grammar(self, my_input, my_values):
         # Here's our initial grammar
-        grammar = {"$START": set([the_input])}
+        grammar = {"$START": set([my_input])}
 
         # Now for each (VAR, VALUE) found:
         # 1. We search for occurrences of VALUE in the grammar
@@ -45,8 +43,8 @@ class Grammar(object):
         # 3. We add a new rule $VAR -> VALUE to the grammar
         while True:
             new_rules = []
-            for var in the_values.keys():
-                value = the_values[var]
+            for var in my_values.keys():
+                value = my_values[var]
                 for key in grammar.keys():
                     repl_alternatives = grammar[key]
                     for repl in repl_alternatives:
@@ -66,7 +64,7 @@ class Grammar(object):
                 grammar[alt_key] = set([value])
 
                 # Do not expand this again
-                del the_values[var]
+                del my_values[var]
 
         return grammar
 
