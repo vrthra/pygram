@@ -10,7 +10,12 @@ def slurp(src):
 if __name__ == "__main__":
     lines = [l.strip() for l in slurp(sys.argv[1])]
     # Infer grammar
-    mygrammar = grammar.Grammar(urlparse, lines)
+    mygrammar = grammar.Grammar()
+    v = {}
+    for i in lines:
+       with grammar.Tracer(i, v):
+          urlparse(i)
+       mygrammar.update(i, v)
 
     # Output it
     print("Merged grammar ->\n%s" % mygrammar)

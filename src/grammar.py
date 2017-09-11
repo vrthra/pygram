@@ -1,28 +1,14 @@
 import sys
 
 class Tracer(object):
-    def __init__(self, method):
-        self.method = method
+    def __init__(self, i, v):
+        self.method = self.tracer(i, v)
+
     def __enter__(self):
         sys.settrace(self.method)
+
     def __exit__(self, type, value, traceback):
         sys.settrace(None)
-
-class Grammar(object):
-    def __init__(self, method, inputs):
-        self.method = method
-        self.inputs = inputs
-        self.grammar = self.get_merged_grammar()
-
-    def __str__(self): return self.grammar_to_string(self.grammar)
-
-    def grammar_to_string(self, grammar):
-        return "\n".join(["%s ::= %s" % (key, " | ".join(grammar[key])) for key in grammar.keys()])
-
-    def nonterminal(self, var): return "$" + var.upper()
-
-    def merge_hash(self, g1, g2):
-        return {k: g1.get(k, set()) | g2.get(k, set()) for k in set(g1.keys() + g2.keys())}
 
     def tracer(self, the_input, the_values):
         # We record all string variables and values occurring during execution
@@ -36,14 +22,20 @@ class Grammar(object):
             return traceit
         return traceit
 
+class Grammar(object):
+    def __init__(self):
+        self.grammar = {}
+
+    def __str__(self): return self.grammar_to_string(self.grammar)
+
+    def grammar_to_string(self, grammar):
+        return "\n".join(["%s ::= %s" % (key, " | ".join(grammar[key])) for key in grammar.keys()])
+
+    def nonterminal(self, var): return "$" + var.upper()
+
 
     # Obtain a grammar for a specific input
-    def get_grammar(self, the_input):
-        # We obtain a mapping of variables to values
-        # We store individual variable/value pairs here
-        the_values = {}
-        with tracer.Tracer(self.tracer(the_input, the_values)): self.method(the_input)
-
+    def get_grammar(self, the_input, the_values):
         # Here's our initial grammar
         grammar = {"$START": set([the_input])}
 
@@ -78,12 +70,8 @@ class Grammar(object):
 
         return grammar
 
+    def merge_hash(self, g1, g2):
+        return {k: g1.get(k, set()) | g2.get(k, set()) for k in set(g1.keys() + g2.keys())}
 
-    # Get a grammar for multiple inputs
-    def get_merged_grammar(self):
-        merged_grammar = {}
-        for i in self.inputs:
-            merged_grammar = self.merge_hash(merged_grammar, self.get_grammar(i))
-
-        return merged_grammar
-
+    def update(self, i, v):
+        self.grammar = self.merge_hash(self.grammar, self.get_grammar(i, v))
