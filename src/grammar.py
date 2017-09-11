@@ -1,4 +1,5 @@
 import sys
+import collections
 
 class Tracer(object):
     def __init__(self, i, v):
@@ -16,14 +17,17 @@ class Tracer(object):
             variables = frame.f_locals.keys()
             for var in variables:
                 value = frame.f_locals[var]
-                # Save all non-trivial string values that also occur in the input
                 if isinstance(value, str) and len(value) >= 2 and value in the_input:
                     the_values[var] = value
             return traceit
         return traceit
 
+class Multidict(collections.defaultdict):
+    def merge(self, g2):
+        for k,v in g2.items(): self[k] = self[k] | v
+
 class Grammar(object):
-    def __init__(self): self.grammar = {}
+    def __init__(self): self.grammar = Multidict(set)
 
     def __str__(self): return self.grammar_to_string(self.grammar)
 
@@ -68,8 +72,5 @@ class Grammar(object):
 
         return grammar
 
-    def merge_hash(self, g1, g2):
-        return {k: g1.get(k, set()) | g2.get(k, set()) for k in set(g1.keys() + g2.keys())}
-
     def update(self, i, v):
-        self.grammar = self.merge_hash(self.grammar, self.get_grammar(i, v))
+        self.grammar.merge(self.get_grammar(i, v))
