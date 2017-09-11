@@ -28,29 +28,6 @@ INPUTS = [
     'http://foo@google.com:8080/bar?q=r#ref2',
 ]
 
-# We store individual variable/value pairs here
-global the_values
-the_values = {}
-
-# The current input string
-global the_input
-the_input = None
-
-# We record all string variables and values occurring during execution
-def traceit(frame, event, arg):
-    global the_values
-    variables = frame.f_locals.keys()
-
-    for var in variables:
-        value = frame.f_locals[var]
-        # print(var, value)
-        
-        # Save all non-trivial string values that also occur in the input
-        if type(value) == type('') and len(value) >= 2 and value in the_input:
-            the_values[var] = value
-
-    return traceit
-
 # Convert a variable name into a grammar nonterminal
 def nonterminal(var):
     return "$" + var.upper()
@@ -70,11 +47,27 @@ def get_grammar(input):
     grammar = {"$START": [input]}
 
     # We obtain a mapping of variables to values
-    global the_input
+    # The current input string
     the_input = input
 
-    global the_values
+    # We store individual variable/value pairs here
     the_values = {}
+
+    # We record all string variables and values occurring during execution
+    def traceit(frame, event, arg):
+        variables = frame.f_locals.keys()
+
+        for var in variables:
+            value = frame.f_locals[var]
+            # print(var, value)
+
+            # Save all non-trivial string values that also occur in the input
+            if type(value) == type('') and len(value) >= 2 and value in the_input:
+                the_values[var] = value
+
+        return traceit
+
+
     
     sys.settrace(traceit)
     o = urlparse(the_input)
