@@ -1,32 +1,13 @@
 #!/usr/bin/env python
 # Mine a grammar from dynamic behavior
 
-# This program is copyright (c) 2017 Saarland University.
-# Written by Andreas Zeller <zeller@cs.uni-saarland.de>.
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 import sys
 import random
 
 from urlparse import urlparse
 
-INPUTS = [
-    'http://www.st.cs.uni-saarland.de/zeller#ref',
-    'https://www.cispa.saarland:80/bar',
-    'http://foo@google.com:8080/bar?q=r#ref2',
-]
+def slurp(src):
+    with open(src) as x: return x.readlines()
 
 # Convert a variable name into a grammar nonterminal
 def nonterminal(var):
@@ -142,38 +123,10 @@ def apply_rule(term, rule):
     # this could also be some random occurrence
     return term.replace(old, new, 1)
 
-MAX_SYMBOLS = 5
-MAX_TRIES = 500
-
-def produce(grammar):
-    term = "$START"
-    tries = 0
-
-    while term.count('$') > 0:
-        # All rules have the same chance;
-        # this could also be weighted
-        key = random.choice(list(grammar.keys()))
-        repl = random.choice(grammar[key])
-        new_term = apply_rule(term, (key, repl))
-        if new_term != term and new_term.count('$') < MAX_SYMBOLS:
-            term = new_term
-            # print(term)
-            tries = 0
-        else:
-            tries += 1
-            if tries >= MAX_TRIES:
-                assert False, "Cannot expand " + term
-            
-    return term
-        
 if __name__ == "__main__":
+    lines = [l.strip() for l in slurp(sys.argv[1])]
     # Infer grammar
-    grammar = get_merged_grammar(INPUTS)
+    grammar = get_merged_grammar(lines)
 
     # Output it
     print("Merged grammar -> %s" % grammar_to_string(grammar))
-
-    # Fuzz a little
-    print("Fuzzing ->")
-    for i in range(1, 10):
-        print(produce(grammar))

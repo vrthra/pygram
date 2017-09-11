@@ -1,2 +1,2 @@
 miner:
-	python ./src/grammar-miner.py
+	python ./src/grammar-miner.py ./tests/inputs.txt
