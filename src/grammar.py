@@ -26,49 +26,52 @@ class Multidict(collections.defaultdict):
     def merge(self, g2):
         for k,v in g2.items(): self[k] = self[k] | v
 
+class RSet(set):
+    def replace(self, key, replacement):
+        self.remove(key)
+        self.add(replacement)
+
 class Grammar(object):
-    def __init__(self): self.grammar = Multidict(set)
+    def __init__(self): self.grammar = Multidict(RSet)
 
     def __str__(self): return self.grammar_to_string(self.grammar)
 
     def grammar_to_string(self, grammar):
         return "\n".join(["%s ::= %s" % (key, " | ".join(grammar[key])) for key in grammar.keys()])
 
-    def nonterminal(self, var): return "$" + var.upper()
+    def nt(self, var): return "$" + var.upper()
+
+    def gen_rules(self, localvar, localval, grammar):
+        new_rules = []
+        for key, inputvalues in grammar.items():
+            rules = [(self.nt(localvar), localval, ivalue) for ivalue in inputvalues if localval in ivalue]
+
+            for (nt_myvar, my_val, r) in rules:
+                inputvalues.replace(r, r.replace(my_val, nt_myvar))
+            new_rules += [(localvar, nt, lval) for (nt, lval, _) in rules]
+        return new_rules
+
 
     # Obtain a grammar for a specific input
-    def get_grammar(self, my_input, my_values):
+    def get_grammar(self, my_input, local_values):
         # Here's our initial grammar
-        grammar = {"$START": set([my_input])}
+        grammar = {"$START": RSet([my_input])}
 
         # Now for each (VAR, VALUE) found:
         # 1. We search for occurrences of VALUE in the grammar
         # 2. We replace them by $VAR
         # 3. We add a new rule $VAR -> VALUE to the grammar
         while True:
-            new_rules = []
-            for var in my_values.keys():
-                value = my_values[var]
-                for key in grammar.keys():
-                    repl_alternatives = grammar[key]
-                    for repl in repl_alternatives:
-                        if value in repl:
-                            # Found variable value in some grammar nonterminal
+            new_rules = sum([self.gen_rules(lvar, lval, grammar) for (lvar, lval) in local_values.items()], [])
 
-                            # Replace value by nonterminal name
-                            alt_key = self.nonterminal(var)
-                            repl_alternatives.remove(repl)
-                            repl_alternatives.add(repl.replace(value, alt_key))
-                            new_rules = new_rules + [(var, alt_key, value)]
-
-            if len(new_rules) == 0: break # Nothing to expand anymore
-
-            for (var, alt_key, value) in new_rules:
+            for (lvar, ntkey, lvalue) in new_rules:
                 # Add new rule to grammar
-                grammar[alt_key] = set([value])
+                grammar[ntkey] = RSet([lvalue])
 
                 # Do not expand this again
-                del my_values[var]
+                del local_values[lvar]
+
+            if len(new_rules) == 0: break # Nothing to expand anymore
 
         return grammar
 
