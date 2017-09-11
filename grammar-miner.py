@@ -42,13 +42,11 @@ def grammar_to_string(grammar):
     return s
 
 # Obtain a grammar for a specific input
-def get_grammar(input):
+def get_grammar(the_input):
     # Here's our initial grammar
-    grammar = {"$START": [input]}
+    grammar = {"$START": [the_input]}
 
     # We obtain a mapping of variables to values
-    # The current input string
-    the_input = input
 
     # We store individual variable/value pairs here
     the_values = {}
