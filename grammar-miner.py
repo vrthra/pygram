@@ -128,7 +128,7 @@ def get_merged_grammar(inputs):
     merged_grammar = None
     for input in inputs:
         grammar = get_grammar(input)
-        print(repr(input) + " ->\n" + grammar_to_string(grammar))
+        print( "%s -> %s" % (repr(input), grammar_to_string(grammar)))
         if merged_grammar is None:
             merged_grammar = grammar
         else:
@@ -171,7 +171,7 @@ if __name__ == "__main__":
     grammar = get_merged_grammar(INPUTS)
 
     # Output it
-    print("Merged grammar ->\n" + grammar_to_string(grammar))
+    print("Merged grammar -> %s" % grammar_to_string(grammar))
 
     # Fuzz a little
     print("Fuzzing ->")
