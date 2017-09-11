@@ -16,28 +16,28 @@ class Grammar(object):
     def merge_hash(self, g1, g2):
         return {k: g1.get(k, set()) | g2.get(k, set()) for k in set(g1.keys() + g2.keys())}
 
-    # Obtain a grammar for a specific input
-    def get_grammar(self, the_input):
-        # Here's our initial grammar
-        grammar = {"$START": set([the_input])}
-
-        # We obtain a mapping of variables to values
-        # We store individual variable/value pairs here
-        the_values = {}
-
+    def tracer(self, the_input, the_values):
         # We record all string variables and values occurring during execution
         def traceit(frame, event, arg):
             variables = frame.f_locals.keys()
             for var in variables:
                 value = frame.f_locals[var]
-                # print(var, value)
                 # Save all non-trivial string values that also occur in the input
                 if type(value) == type('') and len(value) >= 2 and value in the_input:
                     the_values[var] = value
-
             return traceit
+        return traceit
 
-        with tracer.Tracer(traceit): self.method(the_input)
+
+    # Obtain a grammar for a specific input
+    def get_grammar(self, the_input):
+        # We obtain a mapping of variables to values
+        # We store individual variable/value pairs here
+        the_values = {}
+        with tracer.Tracer(self.tracer(the_input, the_values)): self.method(the_input)
+
+        # Here's our initial grammar
+        grammar = {"$START": set([the_input])}
 
         # Now for each (VAR, VALUE) found:
         # 1. We search for occurrences of VALUE in the grammar
