@@ -41,17 +41,6 @@ class Grammar(object):
 
     def nt(self, var): return "$" + var.upper()
 
-    def gen_rules(self, localvar, localval, grammar):
-        new_rules = []
-        for key, inputvalues in grammar.items():
-            rules = [(self.nt(localvar), localval, ivalue) for ivalue in inputvalues if localval in ivalue]
-
-            for (nt_myvar, my_val, r) in rules:
-                inputvalues.replace(r, r.replace(my_val, nt_myvar))
-            new_rules += [(localvar, nt, lval) for (nt, lval, _) in rules]
-        return new_rules
-
-
     # Obtain a grammar for a specific input
     def get_grammar(self, my_input, local_values):
         # Here's our initial grammar
@@ -62,7 +51,17 @@ class Grammar(object):
         # 2. We replace them by $VAR
         # 3. We add a new rule $VAR -> VALUE to the grammar
         while True:
-            new_rules = sum([self.gen_rules(lvar, lval, grammar) for (lvar, lval) in local_values.items()], [])
+            new_rules = []
+            for localvar, localval in local_values.items():
+                for key, inputvalues in grammar.items():
+                    rules = [(self.nt(localvar), localval, ivalue) for ivalue in inputvalues if localval in ivalue]
+
+                    for (nt_myvar, my_val, r) in rules:
+                        inputvalues.replace(r, r.replace(my_val, nt_myvar))
+
+                    new_rules += [(localvar, nt, lval) for (nt, lval, _) in rules]
+
+            if len(new_rules) == 0: break # Nothing to expand anymore
 
             for (lvar, ntkey, lvalue) in new_rules:
                 # Add new rule to grammar
@@ -70,8 +69,6 @@ class Grammar(object):
 
                 # Do not expand this again
                 del local_values[lvar]
-
-            if len(new_rules) == 0: break # Nothing to expand anymore
 
         return grammar
 
