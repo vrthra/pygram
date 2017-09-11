@@ -20,7 +20,7 @@
 import sys
 import random
 
-from urllib.parse import urlparse
+from urlparse import urlparse
 
 INPUTS = [
     'http://www.st.cs.uni-saarland.de/zeller#ref',
