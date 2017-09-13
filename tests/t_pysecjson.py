@@ -1,4 +1,4 @@
-from Pysec import Parser, choice, quoted_chars, group_chars, option_chars, digits, between, pair, spaces, match, quoted_collection
+from pysec import Parser, choice, quoted_chars, group_chars, option_chars, digits, between, pair, spaces, match, quoted_collection
 
 # json_choices is a hack to get around mutual recursion 
 # a json is value is one of text, number, mapping, and collection
