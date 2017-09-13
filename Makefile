@@ -2,16 +2,32 @@ CONFIG=config.py
 
 all: \
 tnayajson \
-tsqlparser \
 tmicrojson \
+tsimplejson \
 turlparse \
+turlparser \
 tconfigobj \
+tconfigparser \
 tromannumerals \
-tarith \
+tsqlparser \
 tsimplesql \
 tselectsql \
+tsimpleselectsql \
 tsimplearith \
-tsimpleselectsql
+tarith \
+tpgn \
+tmicroc \
+tcsubset \
+tdeltatime \
+tdatetime \
+tdateutil \
+ttime \
+teasydate \
+tarrow \
+tdateparser \
+tapachelogparser \
+taccesslog \
+thttpresponse
 	@echo done
 
 done="_________________________________________________"
@@ -21,12 +37,12 @@ tnayajson: $(CONFIG)
 	python3 ./tests/t_nayajson.py ./data/json2.txt
 	@echo $(done)
 
-tsqlparser:  $(CONFIG)
-	python ./tests/t_sqlparser.py ./data/sql_lines.txt
-	@echo $(done)
-
 tmicrojson: $(CONFIG)
 	python ./tests/t_microjson.py ./data/json2.txt
+	@echo $(done)
+
+tsimplejson: $(CONFIG)
+	python ./tests/t_simplejson.py ./data/json2.txt
 	@echo $(done)
 
 turlparse: $(CONFIG)
@@ -37,6 +53,10 @@ turlparser: $(CONFIG)
 	python ./tests/t_urlparser.py ./data/urltest_lines.txt
 	@echo $(done)
 
+tconfigparser: $(CONFIG)
+	python3 ./tests/t_configparser.py ./data/config.txt
+	@echo $(done)
+
 tconfigobj: $(CONFIG)
 	python ./tests/t_configobj.py ./data/config.txt
 	@echo $(done)
@@ -45,8 +65,8 @@ tromannumerals: $(CONFIG)
 	python ./tests/t_romannumerals.py ./data/roman_lines.txt
 	@echo $(done)
 
-tarith: $(CONFIG)
-	python ./tests/t_arith.py ./data/arith.txt
+tsqlparser:  $(CONFIG)
+	python ./tests/t_sqlparser.py ./data/sql_lines.txt
 	@echo $(done)
 
 tsimplesql: $(CONFIG)
@@ -57,25 +77,68 @@ tselectsql: $(CONFIG)
 	python ./tests/t_selectsql.py ./data/sql_lines3.txt
 	@echo $(done)
 
+tsimpleselectsql: $(CONFIG)
+	python ./tests/t_simpleselectsql.py ./data/simpleselectsql.txt
+	@echo $(done)
+
 tsimplearith: $(CONFIG)
 	python ./tests/t_simplearith.py ./data/simplearith.txt
 	@echo $(done)
 
-
-tsimpleselectsql: $(CONFIG)
-	python ./tests/t_simpleselectsql.py ./data/simpleselectsql.txt
+tarith: $(CONFIG)
+	python ./tests/t_arith.py ./data/arith.txt
 	@echo $(done)
 
 tpgn: $(CONFIG)
 	python ./tests/t_pgn.py ./data/pgn.txt
 	@echo $(done)
 
+tmicroc: $(CONFIG)
+	python ./tests/t_microc.py ./data/microc.txt
+	@echo $(done)
+
+tcsubset: $(CONFIG)
+	python ./tests/t_csubset.py ./data/csubset.txt
+	@echo $(done)
+
 tdeltatime: $(CONFIG)
 	python ./tests/t_deltatime.py ./data/deltatime.txt
 	@echo $(done)
 
-tmicroc: $(CONFIG)
-	python ./tests/t_microc.py ./data/microc.txt
+tdatetime: $(CONFIG)
+	python tests/t_datetime.py data/datetime.txt
+	@echo $(done)
+
+tdateutil: $(CONFIG)
+	python tests/t_dateutil.py data/datetime.txt
+	@echo $(done)
+
+ttime: $(CONFIG)
+	python tests/t_time.py data/datetime.txt
+	@echo $(done)
+
+teasydate: $(CONFIG)
+	python tests/t_easydate.py data/datetime.txt
+	@echo $(done)
+
+tarrow: $(CONFIG)
+	python tests/t_arrow.py data/time.txt
+	@echo $(done)
+
+tdateparser: $(CONFIG)
+	python tests/t_dateparser.py data/dateparser.txt
+	@echo $(done)
+
+tapachelogparser: $(CONFIG)
+	python tests/t_apachelogparser.py data/logs.txt
+	@echo $(done)
+
+taccesslog: $(CONFIG)
+	python tests/t_accesslog.py data/accesslog.txt
+	@echo $(done)
+
+thttpresponse: $(CONFIG)
+	python tests/t_httpresponse.py data/httpresponse.txt
 	@echo $(done)
 
 
