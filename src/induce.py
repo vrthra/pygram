@@ -121,4 +121,6 @@ class RSet(set):
 def grammar():
     mygrammar = Grammar()
     yield mygrammar
+    print("_" * 80)
     print("Merged grammar ->\n%s" % mygrammar)
+    print("_" * 80)

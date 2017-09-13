@@ -1,14 +1,12 @@
 CONFIG=config.py
 
-all: \
-tnayajson \
+python2projects=\
 tmicrojson \
 tsimplejson \
 tpysecjson \
 turlparse \
 turlparser \
 tconfigobj \
-tconfigparser \
 tromannumerals \
 tsqlparser \
 tsimplesql \
@@ -31,10 +29,19 @@ tdateparser \
 tapachelogparser \
 taccesslog \
 thttpresponse
+
+python3projects=\
+tnayajson \
+tconfigparser
+
+all: python2projects python3projects
 	@echo done
 
-done="_________________________________________________"
+python2projects: $(python2projects)
 
+python3projects: $(python3projects)
+
+done=""
 
 tnayajson: $(CONFIG)
 	python3 ./tests/t_nayajson.py ./data/json2.txt
