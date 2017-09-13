@@ -2,13 +2,10 @@ CONFIG=config.py
 
 python2projects=\
 tmicrojson \
-tsimplejson \
-tpysecjson \
 turlparse \
 turlparser \
 tconfigobj \
 tromannumerals \
-tsqlparser \
 tsimplesql \
 tselectsql \
 tsimpleselectsql \
@@ -23,12 +20,16 @@ tdeltatime \
 tdatetime \
 tdateutil \
 ttime \
+taccesslog \
+thttpresponse
+
+withpip2=tsimplejson \
+tpysecjson \
+tsqlparser \
 teasydate \
 tarrow \
 tdateparser \
 tapachelogparser \
-taccesslog \
-thttpresponse
 
 python3projects=\
 tnayajson \
@@ -37,7 +38,9 @@ tconfigparser
 all: python2projects python3projects
 	@echo done
 
-python2projects: $(python2projects)
+python2nopip: $(python2projects)
+
+python2projects: $(python2projects) $(withpip2)
 
 python3projects: $(python3projects)
 
