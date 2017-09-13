@@ -4,6 +4,7 @@ all: \
 tnayajson \
 tmicrojson \
 tsimplejson \
+tpysecjson \
 turlparse \
 turlparser \
 tconfigobj \
@@ -15,6 +16,8 @@ tselectsql \
 tsimpleselectsql \
 tsimplearith \
 tarith \
+tpyexpressioneval \
+tmathexpr \
 tpgn \
 tmicroc \
 tcsubset \
@@ -45,6 +48,10 @@ tsimplejson: $(CONFIG)
 	python ./tests/t_simplejson.py ./data/json2.txt
 	@echo $(done)
 
+tpysecjson: $(CONFIG)
+	python ./tests/t_pysecjson.py
+	@echo $(done)
+
 turlparse: $(CONFIG)
 	python ./tests/t_urlparse.py ./data/url_lines.txt
 	@echo $(done)
@@ -54,7 +61,7 @@ turlparser: $(CONFIG)
 	@echo $(done)
 
 tconfigparser: $(CONFIG)
-	python3 ./tests/t_configparser.py ./data/config.txt
+	python3 ./tests/t_configparser.py ./data/configini.txt
 	@echo $(done)
 
 tconfigobj: $(CONFIG)
@@ -87,6 +94,14 @@ tsimplearith: $(CONFIG)
 
 tarith: $(CONFIG)
 	python ./tests/t_arith.py ./data/arith.txt
+	@echo $(done)
+
+tpyexpressioneval: $(CONFIG)
+	python ./tests/t_pyexpressioneval.py ./data/pyexpreval.txt
+	@echo $(done)
+
+tmathexpr: $(CONFIG)
+	python ./tests/t_mathexpr.py ./data/mathexpr.txt
 	@echo $(done)
 
 tpgn: $(CONFIG)
