@@ -1,3 +1,5 @@
+CONFIG=config.py
+
 all: \
 tnayajson \
 tsqlparser \
@@ -64,8 +66,23 @@ tsimpleselectsql: $(CONFIG)
 	python ./tests/t_simpleselectsql.py ./data/simpleselectsql.txt
 	@echo $(done)
 
+tpgn: $(CONFIG)
+	python ./tests/t_pgn.py ./data/pgn.txt
+	@echo $(done)
 
-CONFIG=src/config.py
+tdeltatime: $(CONFIG)
+	python ./tests/t_deltatime.py ./data/deltatime.txt
+	@echo $(done)
+
+tmicroc: $(CONFIG)
+	python ./tests/t_microc.py ./data/microc.txt
+	@echo $(done)
+
 
 $(CONFIG): src/defaultconfig.py
 	cat src/defaultconfig.py > config.py
+
+nopyc:; find . -name \*.pyc | xargs rm
+
+ff:;find * -not -type d -exec file '{}' ';'
+
