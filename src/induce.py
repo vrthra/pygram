@@ -5,7 +5,7 @@ from contextlib import contextmanager
 class Grammar(object):
     def __init__(self):
         self.grules = Multidict(RSet)
-        self.environment = {}
+        self.environment = Multidict(RSet)
 
     def __str__(self): return self.grammar_to_string(self.grules)
 
@@ -14,8 +14,17 @@ class Grammar(object):
 
     def nt(self, var): return "$%s" % var.upper()
 
-    def add_env(self, var, value):
-        if cfg.non_trivial(var, value): self.environment[var] = value
+    def longest_first(self, myset):
+        l = sorted([i for (i,l) in list(myset)], key=len, reverse=True)
+        return l
+
+    def add_env(self, var, value, loc):
+        """
+        Add a newly found variable to our list. Ensure that older variables by same name are 
+        not overwritten.
+        TODO: Should we treat recursion differently from shadowing?
+        """
+        if cfg.non_trivial(var, value): self.environment[var].add((value, loc))
 
     def get_grammar(self, my_input, local_env):
         """ Obtain a grammar for a specific input """
@@ -28,14 +37,15 @@ class Grammar(object):
 
         while True:
             new_rules = Multidict(RSet)
-            for (envvar, envval) in local_env.items():
-                present_in_input = False
-                for key, alternatives in grules.items():
-                    matched = [i for i in alternatives if envval in i]
-                    if len(matched) > 0: present_in_input = True
-                    for m in matched:
-                        alternatives.replace(m, m.replace(envval, self.nt(envvar)))
-                if present_in_input: new_rules[envvar].add(envval)
+            for (envvar, envval_djs) in local_env.items():
+                for envval in self.longest_first(envval_djs): # envvals are disjunctions (esp for recursive funcs)
+                    present_in_input = False
+                    for key, alternatives in grules.items():
+                        matched = [i for i in alternatives if envval in i]
+                        if len(matched) > 0: present_in_input = True
+                        for m in matched:
+                            alternatives.replace(m, m.replace(envval, self.nt(envvar)))
+                    if present_in_input: new_rules[envvar].add(envval)
 
             for key in new_rules.keys():
                 grules[self.nt(key)] = new_rules[key] # Add new rule to grammar
@@ -63,9 +73,9 @@ class Tracer(object):
         sys.settrace(None)
         self.grammar.update(self.input)
 
-    def add_if_found(self, var, value):
+    def add_if_found(self, var, value, loc):
         """ if the value of the variable was found in the input, add it to the current environment"""
-        if value in self.input: self.grammar.add_env(var, value)
+        if value in self.input: self.grammar.add_env(var, value, loc)
 
     def sel_vars(self, env):
         """ get only string variables (for now). """
@@ -78,7 +88,7 @@ class Tracer(object):
         return { "%s:%s" % (n, v):v for (k,v)  in vars(obj)}
 
 
-    def process_frame(self, frame):
+    def process_frame(self, frame, loc):
         """
         Does nothing but get all the var=value pairs from the current environment. Various
         configuration options control which scopes are checked.
@@ -88,23 +98,24 @@ class Tracer(object):
         vself  = frame.f_locals.get('self')
         if type(vself) in [Tracer, Grammar]: return
 
+        # TODO: we need to also take care of values assigned in dicts/arrays
         env = frame.f_globals.copy() if cfg.check_globals else {}
         env.update(frame.f_locals) # the globals are shadowed.
         env.update(self.getmembers(vself) if cfg.check_self else {})
 
-        for var, value in self.sel_vars(env): self.add_if_found(var, value)
+        for var, value in self.sel_vars(env): self.add_if_found(var, value, loc)
 
     def tracer(self):
-        def info(caller): return (caller.f_lineno, caller.f_code.co_filename, caller.f_code.co_name)
+        def loc(caller): return (caller.f_code.co_name, caller.f_code.co_filename, caller.f_lineno)
 
         def traceit(frame, event, arg):
-            (l, f, n) = info(frame)
+            (n, f, l) = loc(frame)
             if not cfg.in_scope(f): return
             if cfg.extra_verbose:
-                (cl, cf, cn) = info(frame.f_back)
+                (cn, cf, cl) = loc(frame.f_back)
                 print('%s() %s:%s\n\t%s()<- %s:%s' % (n, f, l, cn, cf, cl))
 
-            self.process_frame(frame)
+            self.process_frame(frame, (n, f, l))
             return traceit
         return traceit
 
@@ -118,9 +129,10 @@ class RSet(set):
         self.add(replacement)
 
 @contextmanager
-def grammar():
+def grammar(hide=False):
     mygrammar = Grammar()
     yield mygrammar
-    print("_" * 80)
-    print("Merged grammar ->\n%s" % mygrammar)
-    print("_" * 80)
+    if not hide:
+      print("_" * 80)
+      print("Merged grammar ->\n%s" % mygrammar)
+      print("_" * 80)

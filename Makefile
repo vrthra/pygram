@@ -1,7 +1,7 @@
 CONFIG=config.py
 
-python2=/usr/local/bin/python2
-python3=/usr/local/bin/python3
+python2=python2
+python3=python3
 env=PYTHONPATH=.:./src:./libs:./tests
 
 python2projects=\
@@ -177,4 +177,9 @@ $(CONFIG): src/defaultconfig.py
 nopyc:; find . -name \*.pyc | xargs rm
 
 ff:;find * -not -type d -exec file '{}' ';'
+
+
+t_accesslog: $(CONFIG)
+	$(env) $(python2) tests/t_accesslog.py
+	@echo $(done)
 
