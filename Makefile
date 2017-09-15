@@ -183,3 +183,7 @@ t_accesslog: $(CONFIG)
 	$(env) $(python2) tests/t_accesslog.py
 	@echo $(done)
 
+t_apachelogparser: $(CONFIG)
+	$(env) $(python2) tests/t_apachelogparser.py
+	@echo $(done)
+

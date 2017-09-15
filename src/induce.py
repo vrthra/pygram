@@ -99,6 +99,7 @@ class Tracer(object):
         if type(vself) in [Tracer, Grammar]: return
 
         # TODO: we need to also take care of values assigned in dicts/arrays
+        # TODO: also ensure that we save the parameters=value.
         env = frame.f_globals.copy() if cfg.check_globals else {}
         env.update(frame.f_locals) # the globals are shadowed.
         env.update(self.getmembers(vself) if cfg.check_self else {})
