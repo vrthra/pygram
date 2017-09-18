@@ -19,35 +19,37 @@ class Grammar(object):
         l = sorted([i for (i,l) in list(myset)], key=len, reverse=True)
         return l
 
-    def add_env(self, var, value, loc):
-        """
-        Add a newly found variable to our list. Ensure that older variables by same name are
-        not overwritten.
-        TODO: Should we treat recursion differently from shadowing?
-        TODO: i.e func_name:varname disjoins func_name:varname but not another_func_name:varname
-        """
-        if cfg.non_trivial(var, value): self.environment.setdefault(var, OrderedSet()).add((value, loc))
+    def only_matching_strings(self, env, full_input):
+        """ get only string variables (for now). """
+        return [(k,v) for (k,v) in env.items() if type(v) == str and v in full_input]
 
-    def add_frame(self, frameid, frame):
-        """ if the frame.id alredy exists, merge this like add_env.
-            Expect frame.id, frame.func_name, and frame.parameters and frame.self to remain same.
-            in the frameenv['variables'] each variable, if it exists already, becomes a disjunction,
-            else it becomes a single element set.
-        """
-         if self.frameenv.get(frameid) == None:
-            self.frameenv[frameid] = frame
-         else:
-            self.frameenv[frameid]['variables'].merge(frame['variables'])
-            self.frameenv[frameid]['self'].merge(frame['self'])
+    def get_initial_rules(self, fname, params, self_env, full_input):
+        env = params
+        env.update(self_env) # will not shadow because the format is cname.attr
+        env_strings = self.only_matching_strings(env, full_input)
 
-    def get_grammar(self, my_input, local_env):
+        rules = MultiValueDict()
+        # For now, just concatenate string args and self string vars and call it the input string
+        # TODO: add trivial ignores
+        rules["$%s:START" % fname] = OrderedSet(" ".join( [self.nt(k) for (k,v) in env_strings]))
+        for (k,v) in env_strings:
+            rules.setdefault(self.nt(k), OrderedSet()).add(v)
+
+        return rules
+
+
+
+    def get_grammar(self, frameenv, full_input):
         """ Obtain a grammar for a specific input """
-        grules = MultiValueDict()
-        # TODO: Restrict the input to only parameters of the function, and associated grules in this iteration.
-        # Not the complete input in grules.
+        params = frameenv['parameters']
+        fname = frameenv['func_name']
 
-        # Replace my_input with function parameters.
-        grules["$START"] = OrderedSet([my_input]) # initial grammar
+        local_env = frameenv['variables']
+        self_env = frameenv['self']
+
+        my_input = self.get_relevant_input(fname, params, self_env) # TODO: self may also contain input value sometimes.
+
+        grules = self.get_initial_rules(params, self_env, full_input)
 
         # for each environmental variable, look for a match of its value in the
         # input string or its alternatives in each rule.
@@ -75,8 +77,11 @@ class Grammar(object):
 
         return grules
 
-    def update(self, i):
-         self.grules.merge(self.get_grammar(i, self.environment))
+    def update(self, frameenv):
+        """
+        update gets called at the end of __exit__ hook of the Tracer.
+        """
+        self.grules.merge(self.get_grammar(frameenv, full_input))
 
 @contextmanager
 def grammar(hide=False):
