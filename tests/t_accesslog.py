@@ -7,15 +7,16 @@ myinput ='''\
 1.1.1.1 - - [21/Feb/2014:06:35:45 +0100] "GET /robots.txt HTTP/1.1" 200 112 "-" "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
 '''
 
+
 mygrammar='''\
-$STRING ::= $IP - - [21/Feb/2014:06:35:45 +0100] "$REQUEST" 200 112 "-" "$USERAGENT"
+$START ::= $S
+
+$S ::= $LINE
+$LINE ::= $IP - - [21/Feb/2014:06:35:45 +0100] "$REQUEST" 200 112 "-" "$USERAGENT"
 $IP ::= 1.1.1.1
-$START ::= $STRING
-
-$USERAGENT ::= Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)
-$REQUEST ::= GET /robots.txt HTTP/1.1\
+$REQUEST ::= GET /robots.txt HTTP/1.1
+$USERAGENT ::= Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)\
 '''
-
 
 class TestAccesslog(unittest.TestCase):
     def test_induce(self):
