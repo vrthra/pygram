@@ -4,8 +4,8 @@ from contextlib import contextmanager
 
 class Grammar(object):
     def __init__(self):
-        self.grules = Multidict(RSet)
-        self.environment = Multidict(RSet)
+        self.grules = Multidict()
+        self.environment = Multidict()
 
     def __str__(self): return self.grammar_to_string(self.grules)
 
@@ -24,11 +24,12 @@ class Grammar(object):
         not overwritten.
         TODO: Should we treat recursion differently from shadowing?
         """
-        if cfg.non_trivial(var, value): self.environment[var].add((value, loc))
+        if cfg.non_trivial(var, value): self.environment.setdefault(var, RSet()).add((value, loc))
 
     def get_grammar(self, my_input, local_env):
         """ Obtain a grammar for a specific input """
-        grules = {"$START": RSet([my_input])} # initial grammar
+        grules = Multidict()
+        grules["$START"] = RSet([my_input]) # initial grammar
 
         # for each environmental variable, look for a match of its value in the
         # input string or its alternatives in each rule.
@@ -36,7 +37,7 @@ class Grammar(object):
         # to the grammar rules name -> value
 
         while True:
-            new_rules = Multidict(RSet)
+            new_rules = Multidict()
             for (envvar, envval_djs) in local_env.items():
                 for envval in self.longest_first(envval_djs): # envvals are disjunctions (esp for recursive funcs)
                     present_in_input = False
@@ -45,7 +46,7 @@ class Grammar(object):
                         if len(matched) > 0: present_in_input = True
                         for m in matched:
                             alternatives.replace(m, m.replace(envval, self.nt(envvar)))
-                    if present_in_input: new_rules[envvar].add(envval)
+                    if present_in_input: new_rules.setdefault(envvar,RSet()).add(envval)
 
             for key in new_rules.keys():
                 grules[self.nt(key)] = new_rules[key] # Add new rule to grammar
@@ -120,9 +121,9 @@ class Tracer(object):
             return traceit
         return traceit
 
-class Multidict(collections.defaultdict):
+class Multidict(collections.OrderedDict):
     def merge(self, g2):
-        for k,v in g2.items(): self[k] = self[k] | v
+        for k,v in g2.items(): self[k] = self.setdefault(k, RSet()) | v
 
 class RSet(set):
     def replace(self, key, replacement):
