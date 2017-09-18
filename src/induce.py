@@ -29,6 +29,7 @@ class Grammar(object):
     def get_grammar(self, my_input, local_env):
         """ Obtain a grammar for a specific input """
         grules = Multidict()
+        # TODO: Restrict the input to only parameters of the function. Not the complete input in grules.
         grules["$START"] = RSet([my_input]) # initial grammar
 
         # for each environmental variable, look for a match of its value in the
