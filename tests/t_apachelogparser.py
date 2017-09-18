@@ -8,17 +8,19 @@ myinput ='''\
 127.0.0.1 <<6113>> [16/Aug/2013:15:45:34 +0000] 1966093us "GET / HTTP/1.1" 200 3478  "https://example.com/" "Mozilla/5.0 (X11; U; Linux x86_64; en-US; rv:1.9.2.18)" - -
 '''
 
-mygrammar='''\
-$TZ_STRING ::= +0000
-$START ::= 127.0.0.1 <<6113>> [16/Aug/2013:15:45:34 $STRING] 1966093us "$STRING" 200 3478  "$NAMEs://example.com/" "Mozilla/5.0 (X11; U; $FAMILY x86_64; en-US; rv:1.9.2.18)" - -
+mygrammar = '''\
+$START ::= $LOG_LINE
+$LOG_LINE ::= 127.0.0.1 <<6113>> [16/Aug/2013:15:45:34 $STRING] 1966093us "$FIRST_LINE" 200 3478  "$NAMEs://example.com/" "$UA" - -
 
+$UA ::= $USER_AGENT_STRING
+$FIRST_LINE ::= GET / HTTP/1.1
 $STRING ::= $TZ_STRING
-	| $FIRST_LINE
-$FAMILY ::= $OS
 $NAME ::= http
-$OS ::= L$OPux
-$OP ::= in
-$FIRST_LINE ::= GET / HTTP/1.1\
+$USER_AGENT_STRING ::= Mozilla/5.0 (X11; U; $OS x86_64; en-US; rv:1.9.2.18)
+$TZ_STRING ::= +0000
+$OS ::= $FAMILY
+$FAMILY ::= L$OPux
+$OP ::= in\
 '''
 
 
