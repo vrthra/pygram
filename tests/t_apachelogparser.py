@@ -23,6 +23,7 @@ $FAMILY ::= L$OPux
 $OP ::= in\
 '''
 
+# TODO: Here, Linux is substituted by L$OPux.
 
 class TestApacheLogParser(unittest.TestCase):
     def test_induce(self):
