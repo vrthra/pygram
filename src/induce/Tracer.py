@@ -62,6 +62,7 @@ class Tracer(object):
             clazz = vself.__class__.__name__
             frame_env['self'].update({'%s.%s' % (clazz, k):v for (k,v) in
                  only_strings(vself.__dict__).iteritems()})
+        frame_env['event'] = loc['event']
 
         print json.dumps(frame_env)
 
@@ -76,6 +77,6 @@ class Tracer(object):
                 (cn, cf, cl) = loc(frame.f_back)
                 print('%s() %s:%s\n\t%s()<- %s:%s' % (n, f, l, cn, cf, cl))
 
-            self.process_frame(frame, {'name':n, 'file':f, 'line':l})
+            self.process_frame(frame, {'name':n, 'file':f, 'line':l, 'event':event})
             return traceit
         return traceit

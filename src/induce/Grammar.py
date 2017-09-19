@@ -13,15 +13,8 @@ class Grammar(object):
 
     def initial_rules(self, fkey):
         fname = self.frameenv[fkey]['func_name']
-        params = self.frameenv[fkey]['parameters']
+        params = self.frameenv[fkey]['parameters'].copy()
         params.update(self.frameenv[fkey]['self']) # will not shadow because the format is cname.attr
-
-        # The special-case for start symbol. This is for the entire grammar.
-        # We initialize $START with the first string parameter.
-        # self may also contain input values sometimes.
-        if not self.initialized:
-            self.grules["$START:%s" % fname] = OrderedSet([" ".join([self.nt(k) for (k,v) in params.iteritems()])])
-            self.initialized = True
 
         # for this function
         if not hasattr(self.my_initial_rules, fname):
@@ -33,17 +26,48 @@ class Grammar(object):
 
         return self.my_initial_rules[fname]
 
+    def init_start_rule(self, fkey, fname, params, vself):
+        # The special-case for start symbol. This is for the entire grammar.
+        # We initialize $START with the first string parameter.
+        # self may also contain input values sometimes.
+        if not self.initialized:
+            paramstr = " ".join([self.nt(k) for (k,v) in params.items() + vself.items()])
+            self.grules["$START:%s" % fname] = OrderedSet([paramstr])
+            self.initialized = True
+
     def decorate(self, fname, d):
         return {"%s:%s" % (fname, k):v for (k,v) in self.non_trivial(d).iteritems()}
+
+    def strip_unused_params(self, rules, params, vself):
+        # params and self should not be disjunctive here.
+        my_rules = rules.copy()
+        for k in vself.keys():
+            ntk = self.nt(k)
+            if rules.get(ntk):
+                v = rules[ntk]
+                found = False
+                for d in v:
+                   if '$' in d: found = True
+                   if not found: del my_rules[ntk]
+        return my_rules
 
     def get_grammar(self, frameenv):
         """
         get_grammar gets called for each line of execution with a frame object
         that corresponds to the current environment.
         """
-        my_local_env = MultiValueDict()
         fname = frameenv['func_name']
         fkey = '%s:%s' % (fname, frameenv['id'])
+        params = self.decorate(fname, frameenv['parameters'])
+        vself = frameenv['self']
+        self.init_start_rule(fkey, fname, params, vself)
+
+        # TODO: Within a particular block execution the same variable
+        # normally not take different values. This is assumed for now, but this should be converted to a disjunction.
+        if frameenv['event'] != 'return': return {}
+
+        my_local_env = MultiValueDict()
+
         if self.frameenv.get(fkey) == None:
            # first activation. Save all interesting stuff
            self.frameenv[fkey] = {}
@@ -52,10 +76,16 @@ class Grammar(object):
            self.frameenv[fkey]['self'] = self.non_trivial(frameenv['self'])
         else:
            my_local_env.merge_dict(self.non_trivial(frameenv['self']))
-        my_local_env.merge_dict(self.decorate(fname,frameenv['variables']))
+
 
         # get the initial rules from parameters.
+        # Here is a problem. We allow self.* as one of the inputs to a function.
+        # now, if a function is invoked on the self, it would still contain the entire input
+        # which gets added as a disjunction to self.input. Needed: We need to consider only
+        # those variables in self that was touched during the function execution.
         my_rules = self.initial_rules(fkey)
+
+        my_local_env.merge_dict(self.decorate(fname,frameenv['variables']))
 
         # for each environmental variable, look for a match of its value in the
         # input string or its alternatives in each rule.
@@ -81,14 +111,15 @@ class Grammar(object):
 
             if len(new_rules) == 0: break # Nothing to expand anymore
 
-        return my_rules
+        return self.strip_unused_params(my_rules, params, vself)
 
     def update(self, frameenv):
         """
         the grules contains $START and all previous iterations.
         """
-        self.grules = self.get_grammar(frameenv)
-        #TODO: fixit self.grules.merge(self.get_grammar(frameenv))
+        g = self.get_grammar(frameenv)
+        if len(g) > 0:
+            self.grules.merge(g)
 
     def __str__(self):
         return self.grammar_to_string(self.grules)
