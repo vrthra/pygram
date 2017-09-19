@@ -1,14 +1,18 @@
 import sys, collections
 import config as cfg
 from contextlib import contextmanager
+from Ordered import MultiValueDict, OrderedSet
 
 class Grammar(object):
     def __init__(self):
         self.grules = MultiValueDict()
         self.environment = MultiValueDict()
         self.frameenv = MultiValueDict()
+        self.initialized = False
+        self.my_initial_rules = MultiValueDict()
 
-    def __str__(self): return self.grammar_to_string(self.grules)
+    def __str__(self):
+        return self.grammar_to_string(self.grules)
 
     def grammar_to_string(self, grules):
         return "\n".join(["%s ::= %s" % (key, "\n\t| ".join(grules[key])) for key in grules.keys()])
@@ -16,40 +20,48 @@ class Grammar(object):
     def nt(self, var): return "$%s" % var.upper()
 
     def longest_first(self, myset):
-        l = sorted([i for (i,l) in list(myset)], key=len, reverse=True)
+        l = sorted([l for l in list(myset)], key=len, reverse=True)
         return l
 
-    def only_matching_strings(self, env, full_input):
-        """ get only string variables (for now). """
-        return [(k,v) for (k,v) in env.items() if type(v) == str and v in full_input]
+    def non_trivial(self, d):
+        return {k:v for (k,v) in d.iteritems() if len(v) >= 2}
 
-    def get_initial_rules(self, fname, params, self_env, full_input):
-        env = params
-        env.update(self_env) # will not shadow because the format is cname.attr
-        env_strings = self.only_matching_strings(env, full_input)
+    def initial_rules(self):
+        fname = self.frameenv['func_name']
+        params = self.frameenv['parameters']
+        params.update(self.frameenv['self']) # will not shadow because the format is cname.attr
 
-        rules = MultiValueDict()
-        # For now, just concatenate string args and self string vars and call it the input string
-        # TODO: add trivial ignores
-        rules["$%s:START" % fname] = OrderedSet(" ".join( [self.nt(k) for (k,v) in env_strings]))
-        for (k,v) in env_strings:
-            rules.setdefault(self.nt(k), OrderedSet()).add(v)
+        # The special-case for start symbol. This is for the entire grammar.
+        # We initialize $START with the first string parameter.
+        # self may also contain input values sometimes.
+        if not self.initialized:
+            self.grules["$START:%s" % fname] = OrderedSet([" ".join([self.nt(k) for (k,v) in params.iteritems()])])
+            self.initialized = True
 
-        return rules
+        # for this function
+        if not hasattr(self.my_initial_rules,fname):
+            rules = MultiValueDict()
+            # add rest of parameters
+            for (k,v) in params.iteritems():
+                rules.setdefault(self.nt(k), OrderedSet()).add(v)
+            self.my_initial_rules[fname] = rules
 
+        return self.my_initial_rules[fname]
 
-
-    def get_grammar(self, frameenv, full_input):
+    def get_grammar(self, frameenv):
         """ Obtain a grammar for a specific input """
-        params = frameenv['parameters']
-        fname = frameenv['func_name']
+        if not hasattr(self.frameenv, 'parameters'):
+           # first activation. Save all interesting stuff
+           self.frameenv['parameters'] = frameenv['parameters']
+           self.frameenv['func_name'] = frameenv['func_name']
+           self.frameenv['self'] = frameenv['self']
 
-        local_env = frameenv['variables']
-        self_env = frameenv['self']
+        my_local_env = MultiValueDict()
+        my_local_env.merge_dict(self.non_trivial(frameenv['variables']))
+        my_local_env.merge_dict(self.non_trivial(frameenv['self']))
 
-        my_input = self.get_relevant_input(fname, params, self_env) # TODO: self may also contain input value sometimes.
-
-        grules = self.get_initial_rules(params, self_env, full_input)
+        # get the initial rules from parameters.
+        my_rules = self.initial_rules()
 
         # for each environmental variable, look for a match of its value in the
         # input string or its alternatives in each rule.
@@ -58,10 +70,10 @@ class Grammar(object):
 
         while True:
             new_rules = MultiValueDict()
-            for (envvar, envval_djs) in local_env.items():
+            for (envvar, envval_djs) in my_local_env.iteritems():
                 for envval in self.longest_first(envval_djs): # envvals are disjunctions (esp for recursive funcs)
                     present_in_input = False
-                    for key, alternatives in grules.items():
+                    for key, alternatives in my_rules.iteritems():
                         matched = [i for i in alternatives if envval in i]
                         if len(matched) > 0: present_in_input = True
                         for m in matched:
@@ -70,18 +82,18 @@ class Grammar(object):
                     if present_in_input: new_rules.setdefault(envvar,OrderedSet()).add(envval)
 
             for key in new_rules.keys():
-                grules[self.nt(key)] = new_rules[key] # Add new rule to grammar
-                del local_env[key] # Do not expand this again
+                my_rules[self.nt(key)] = new_rules[key] # Add new rule to grammar
+                del my_local_env[key] # Do not expand this again
 
             if len(new_rules) == 0: break # Nothing to expand anymore
 
-        return grules
+        return my_rules
 
     def update(self, frameenv):
         """
         update gets called at the end of __exit__ hook of the Tracer.
         """
-        self.grules.merge(self.get_grammar(frameenv, full_input))
+        self.grules.merge(self.get_grammar(frameenv))
 
 @contextmanager
 def grammar(hide=False):

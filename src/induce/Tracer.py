@@ -33,7 +33,7 @@ class Tracer(object):
         # dont process if the frame is tracer
         # this happens at the end of trace -- Tracer.__exit__
         vself  = frame.f_locals.get('self')
-        #return if type(vself) in == Tracer
+        if type(vself) in [Tracer]: return
 
         frame_env = collections.OrderedDict()
 
@@ -57,9 +57,10 @@ class Tracer(object):
         # rather than relying on locals_dict so that we get the ordering of
         # assignment values.
 
+        frame_env['self'] = {}
         if hasattr(vself, '__dict__') and type(vself.__dict__) in [dict]:
             clazz = vself.__class__.__name__
-            frame_env['variables'].update({'%s.%s' % (clazz, k):v for (k,v) in
+            frame_env['self'].update({'%s.%s' % (clazz, k):v for (k,v) in
                  only_strings(vself.__dict__).iteritems()})
 
         print json.dumps(frame_env)
