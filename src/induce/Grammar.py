@@ -11,25 +11,10 @@ class Grammar(object):
         self.initialized = False
         self.my_initial_rules = MultiValueDict()
 
-    def __str__(self):
-        return self.grammar_to_string(self.grules)
-
-    def grammar_to_string(self, grules):
-        return "\n".join(["%s ::= %s" % (key, "\n\t| ".join(grules[key])) for key in grules.keys()])
-
-    def nt(self, var): return "$%s" % var.upper()
-
-    def longest_first(self, myset):
-        l = sorted([l for l in list(myset)], key=len, reverse=True)
-        return l
-
-    def non_trivial(self, d):
-        return {k:v for (k,v) in d.iteritems() if len(v) >= 2}
-
-    def initial_rules(self):
-        fname = self.frameenv['func_name']
-        params = self.frameenv['parameters']
-        params.update(self.frameenv['self']) # will not shadow because the format is cname.attr
+    def initial_rules(self, fkey):
+        fname = self.frameenv[fkey]['func_name']
+        params = self.frameenv[fkey]['parameters']
+        params.update(self.frameenv[fkey]['self']) # will not shadow because the format is cname.attr
 
         # The special-case for start symbol. This is for the entire grammar.
         # We initialize $START with the first string parameter.
@@ -39,7 +24,7 @@ class Grammar(object):
             self.initialized = True
 
         # for this function
-        if not hasattr(self.my_initial_rules,fname):
+        if not hasattr(self.my_initial_rules, fname):
             rules = MultiValueDict()
             # add rest of parameters
             for (k,v) in params.iteritems():
@@ -48,20 +33,29 @@ class Grammar(object):
 
         return self.my_initial_rules[fname]
 
-    def get_grammar(self, frameenv):
-        """ Obtain a grammar for a specific input """
-        if not hasattr(self.frameenv, 'parameters'):
-           # first activation. Save all interesting stuff
-           self.frameenv['parameters'] = frameenv['parameters']
-           self.frameenv['func_name'] = frameenv['func_name']
-           self.frameenv['self'] = frameenv['self']
+    def decorate(self, fname, d):
+        return {"%s:%s" % (fname, k):v for (k,v) in self.non_trivial(d).iteritems()}
 
+    def get_grammar(self, frameenv):
+        """
+        get_grammar gets called for each line of execution with a frame object
+        that corresponds to the current environment.
+        """
         my_local_env = MultiValueDict()
-        my_local_env.merge_dict(self.non_trivial(frameenv['variables']))
-        my_local_env.merge_dict(self.non_trivial(frameenv['self']))
+        fname = frameenv['func_name']
+        fkey = '%s:%s' % (fname, frameenv['id'])
+        if self.frameenv.get(fkey) == None:
+           # first activation. Save all interesting stuff
+           self.frameenv[fkey] = {}
+           self.frameenv[fkey]['parameters'] = self.decorate(fname, frameenv['parameters'])
+           self.frameenv[fkey]['func_name'] = frameenv['func_name']
+           self.frameenv[fkey]['self'] = self.non_trivial(frameenv['self'])
+        else:
+           my_local_env.merge_dict(self.non_trivial(frameenv['self']))
+        my_local_env.merge_dict(self.decorate(fname,frameenv['variables']))
 
         # get the initial rules from parameters.
-        my_rules = self.initial_rules()
+        my_rules = self.initial_rules(fkey)
 
         # for each environmental variable, look for a match of its value in the
         # input string or its alternatives in each rule.
@@ -91,9 +85,26 @@ class Grammar(object):
 
     def update(self, frameenv):
         """
-        update gets called at the end of __exit__ hook of the Tracer.
+        the grules contains $START and all previous iterations.
         """
-        self.grules.merge(self.get_grammar(frameenv))
+        self.grules = self.get_grammar(frameenv)
+        #TODO: fixit self.grules.merge(self.get_grammar(frameenv))
+
+    def __str__(self):
+        return self.grammar_to_string(self.grules)
+
+    def grammar_to_string(self, grules):
+        return "\n".join(["%s ::= %s" % (key, "\n\t| ".join(grules[key])) for key in grules.keys()])
+
+    def nt(self, var): return "$%s" % var.upper()
+
+    def longest_first(self, myset):
+        l = sorted([l for l in list(myset)], key=len, reverse=True)
+        return l
+
+    def non_trivial(self, d):
+        return {k:v for (k,v) in d.iteritems() if len(v) >= 2}
+
 
 @contextmanager
 def grammar(hide=False):

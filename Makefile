@@ -192,3 +192,7 @@ t_apachelogparser: $(CONFIG)
 accesslog.js: src/induce/Tracer.py
 	$(env) $(python2) tests/t_accesslog.py > $@.tmp
 	mv $@.tmp $@
+
+accesslog.grammar: accesslog.js
+	$(env) $(python2) ./src/merge.py accesslog.js
+
