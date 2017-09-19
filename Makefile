@@ -187,3 +187,8 @@ t_apachelogparser: $(CONFIG)
 	$(env) $(python2) tests/t_apachelogparser.py
 	@echo $(done)
 
+
+
+accesslog.js:
+	$(env) $(python2) tests/t_accesslog.py > $@.tmp
+	mv $@.tmp $@

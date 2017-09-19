@@ -29,15 +29,15 @@ $ANALYZE:USERAGENT ::= Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.googl
 '''
 
 
-class TestAccesslog(unittest.TestCase):
-    def test_induce(self):
-        with induce.grammar(True) as g:
-           summary = accesslog.LogAnalyzer(myinput, 5)
-           with induce.Tracer(myinput, g):
-              summary.analyze()
-        val = "%s" % g
-        self.assertEqual(val, mygrammar)
+#class TestAccesslog(unittest.TestCase):
+#    def test_induce(self):
+        #with induce.grammar(True) as g:
+summary = accesslog.LogAnalyzer(myinput, 5)
+with induce.Tracer(myinput):
+    summary.analyze()
+        #val = "%s" % g
+        #self.assertEqual(val, mygrammar)
 
 
-if __name__ == '__main__':
-    unittest.main()
+#if __name__ == '__main__':
+#    unittest.main()
