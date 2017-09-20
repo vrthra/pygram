@@ -76,7 +76,7 @@ class Tracer(object):
 
     def add_if_found(self, var, value, loc):
         """ if the value of the variable was found in the input, add it to the current environment"""
-        if value in self.input: self.grammar.add_env(var, value, loc)
+        if value in self.input: self.grammar.add_env("%s:%s" % (loc[0],var), value, loc)
 
     def sel_vars(self, env):
         """ get only string variables (for now). """
