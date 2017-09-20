@@ -10,4 +10,4 @@ decorate = False
 # scan and remove unused parameters, on grammar merge, the unused
 # self objects combines with the same attribute in other functions
 # where they are decomposed.
-strip_unused_params = False
+strip_unused_self = False

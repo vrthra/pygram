@@ -197,6 +197,7 @@ t_apachelogparser: $(CONFIG)
 
 %.g: %.js
 	$(env) $(python2) ./src/merge.py $? > $@.tmp
+	cat $@.tmp
 	mv $@.tmp $@
 
 %.grammar:

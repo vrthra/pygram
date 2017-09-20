@@ -90,7 +90,7 @@ class Grammar(object):
 
             if len(new_rules) == 0: break # Nothing to expand anymore
 
-        return self.strip_unused_params(my_rules, params, vself)
+        return self.strip_unused_self(my_rules, params, vself)
 
     def update(self, frameenv):
         """
@@ -138,8 +138,8 @@ class Grammar(object):
     def decorate(self, fname, d):
         return {"%s:%s" % (fname, k):v for (k,v) in self.non_trivial(d).iteritems()}
 
-    def strip_unused_params(self, rules, params, vself):
-        if not cfg.strip_unused_params: return rules
+    def strip_unused_self(self, rules, params, vself):
+        if not cfg.strip_unused_self: return rules
         # params and self should not be disjunctive here.
         my_rules = rules.copy()
         for k in vself.keys():
