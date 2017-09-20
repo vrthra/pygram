@@ -1,4 +1,5 @@
 import sys
+import copy
 import collections
 import json
 import itertools
@@ -15,6 +16,19 @@ import config as cfg
 # However, if there is a shadowing local variable, we should ignore
 # the global.
 # TODO: we need to also take care of values assigned in dicts/arrays
+
+def scrub(obj):
+    """
+    Remove everything except strings.
+    """
+    if isinstance(obj, dict):
+        return {k:v for k,v in [(k,scrub(v)) for (k,v) in obj.iteritems()] if v != None}
+    elif isinstance(obj, list):
+        return [k for k in [scrub(k) for k in obj] if k != None]
+    elif isinstance(obj, str):
+        return obj
+    else:
+        return None
 
 class Tracer(object):
     """ The context manager that manages trace hooking and unhooking. """
@@ -61,14 +75,14 @@ class Tracer(object):
            my_parameters[name] = my_locals[name]
            del my_locals[name]
 
-        frame_env['variables'] = only_strings(my_locals)
-        frame_env['parameters'] = only_strings(my_parameters)
+        frame_env['variables'] = scrub(my_locals)
+        frame_env['parameters'] = scrub(my_parameters)
 
         frame_env['self'] = {}
         if hasattr(vself, '__dict__') and type(vself.__dict__) in [dict]:
             clazz = vself.__class__.__name__
             frame_env['self'].update({'%s.%s' % (clazz, k):v for (k,v) in
-                 only_strings(vself.__dict__).iteritems()})
+                 scrub(vself.__dict__).iteritems()})
         frame_env['event'] = loc['event']
 
         print >> sys.stderr, json.dumps(frame_env)
