@@ -124,12 +124,9 @@ class Grammar(object):
 
     def nt(self, var): return "$%s" % var.upper()
 
-    def longest_first(self, myset):
-        l = sorted([l for l in list(myset)], key=len, reverse=True)
-        return l
+    def longest_first(self, myset): return sorted([l for l in list(myset)], key=len, reverse=True)
 
-    def non_trivial(self, d):
-        return {k:v for (k,v) in d.iteritems() if len(v) >= 2}
+    def non_trivial(self, d): return {k:v for (k,v) in d.iteritems() if len(v) >= 2}
 
     def start_rule(self, fkey, fname, params, vself):
         # The special-case for start symbol. This is for the entire grammar.
