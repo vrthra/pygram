@@ -45,7 +45,7 @@ $GETWIDTH:OP ::= $_COMPILE:OP
 $_COMPILE:OP ::= in\
 '''
 
-line_parser = apache_log_parser.make_parser("%h <<%P>> %t %Dus \"%r\" %>s %b  \"%{Referer}i\" \"%{User-Agent}i\" %l %u")
+parser = apache_log_parser.Parser("%h <<%P>> %t %Dus \"%r\" %>s %b  \"%{Referer}i\" \"%{User-Agent}i\" %l %u")
 with induce.Tracer(myinput):
-    line_parser(myinput)
+    parser.parse(myinput)
 
