@@ -63,7 +63,8 @@ class Grammar(object):
         self.init_start_rule(fkey, fname, params, vself)
 
         # TODO: Within a particular block execution the same variable
-        # normally not take different values. This is assumed for now, but this should be converted to a disjunction.
+        # normally does not take different values. This is assumed for
+        # now, but this should be converted to a disjunction.
         if frameenv['event'] != 'return': return {}
 
         my_local_env = MultiValueDict()
@@ -102,7 +103,6 @@ class Grammar(object):
                         if len(matched) > 0: present_in_input = True
                         for m in matched:
                             alternatives.replace(m, m.replace(envval, self.nt(envvar)))
-                    # TODO: should we add a disjoin here or just uuid the var if it already exists?
                     if present_in_input: new_rules.setdefault(envvar,OrderedSet()).add(envval)
 
             for key in new_rules.keys():
@@ -146,7 +146,6 @@ class Grammar(object):
 
     def non_trivial(self, d):
         return {k:v for (k,v) in d.iteritems() if len(v) >= 2}
-
 
 @contextmanager
 def grammar(hide=False):

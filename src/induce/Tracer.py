@@ -5,6 +5,17 @@ import itertools
 import inspect
 import Ordered
 import config as cfg
+
+# TODO: At least simple data flow (just parsing simple assignments)
+# would be useful to restrict the induced grammar.
+# i.e if we only have a = b + c, then we could restrict the grammar of
+# $A to just $B $C.
+# TODO: Figure out how globals fits into this.
+# Globals are like self in that it may also be considered an input.
+# However, if there is a shadowing local variable, we should ignore
+# the global.
+# TODO: we need to also take care of values assigned in dicts/arrays
+
 class Tracer(object):
     """ The context manager that manages trace hooking and unhooking. """
     def __init__(self, i):
@@ -19,6 +30,8 @@ class Tracer(object):
     def __exit__(self, type, value, traceback):
         """ unhook """
         sys.settrace(None)
+        # print an empty record to indicate one full invocation.
+        print
 
     def process_frame(self, frame, loc):
         """
@@ -37,9 +50,6 @@ class Tracer(object):
 
         frame_env = collections.OrderedDict()
 
-        # TODO: we need to also take care of values assigned in dicts/arrays
-        # TODO: Figure out how globals fits into this.
-
         frame_env['id'] = frame.__hash__()
         frame_env['func_name'] = loc['name']
         my_parameters = {}
@@ -53,9 +63,6 @@ class Tracer(object):
 
         frame_env['variables'] = only_strings(my_locals)
         frame_env['parameters'] = only_strings(my_parameters)
-        # at some point, we may just want to save the assignments directly
-        # rather than relying on locals_dict so that we get the ordering of
-        # assignment values.
 
         frame_env['self'] = {}
         if hasattr(vself, '__dict__') and type(vself.__dict__) in [dict]:
