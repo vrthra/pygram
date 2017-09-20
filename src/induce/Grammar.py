@@ -101,10 +101,12 @@ class Grammar(object):
             self.grules.merge(g)
 
     def __str__(self):
-        return self.grammar_to_string(self.grules)
+        my_rules = self.strip_unused_rules(self.grules)
+        return self.grammar_to_string(my_rules)
 
-    def grammar_to_string(self, rules):
+    def strip_unused_rules(self, rules):
         # strip out rules (except start) that are not in the right side.
+        # this should have more intelligence to avoid keeping circular rules
         def has_key(rules, key):
             for v in rules.values():
                 for d in v:
@@ -115,7 +117,10 @@ class Grammar(object):
         for ntkey,v in rules.iteritems():
             if has_key(rules, ntkey) or '$START' in ntkey:
                 my_rules[ntkey] = v
-        return "\n".join(["%s ::= %s" % (key, "\n\t| ".join(my_rules[key])) for key in my_rules.keys()])
+        return my_rules
+
+    def grammar_to_string(self, rules):
+        return "\n".join(["%s ::= %s" % (key, "\n\t| ".join(rules[key])) for key in rules.keys()])
 
     def nt(self, var): return "$%s" % var.upper()
 
