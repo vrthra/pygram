@@ -107,6 +107,7 @@ class Grammar(object):
     def strip_unused_rules(self, rules):
         # strip out rules (except start) that are not in the right side.
         # this should have more intelligence to avoid keeping circular rules
+        if not cfg.strip_unused_rules: return rules
         def has_key(rules, key):
             for v in rules.values():
                 for d in v:
@@ -154,11 +155,16 @@ class Grammar(object):
                    if not found: del my_rules[ntk]
         return my_rules
 
+    def gc(self):
+        # for each nt, expand it to the full string, and replace values that it matches.
+        pass
+
 
 @contextmanager
 def grammar(hide=False):
     mygrammar = Grammar()
     yield mygrammar
+    mygrammar.gc()
     if not hide:
       print("_" * 80)
       print(mygrammar)
