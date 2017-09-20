@@ -121,7 +121,8 @@ class Grammar(object):
         return my_rules
 
     def grammar_to_string(self, rules):
-        return "\n".join(["%s ::= %s" % (key, "\n\t| ".join(rules[key])) for key in rules.keys()])
+        return "\n".join(["%s ::= %s" % (key, "\n\t| ".join(
+            [i.replace('\n', '\\n') for i in rules[key]])) for key in rules.keys()])
 
     def nt(self, var): return "$%s" % var.upper()
 
