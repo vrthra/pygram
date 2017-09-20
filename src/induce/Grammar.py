@@ -103,17 +103,17 @@ class Grammar(object):
     def __str__(self):
         return self.grammar_to_string(self.grules)
 
-    def has_key(self, key):
-        for ntkey, v in self.grules.iteritems():
-            for d in v:
-                if key in d: return True
-        return False
-
-    def grammar_to_string(self, grules):
+    def grammar_to_string(self, rules):
         # strip out rules (except start) that are not in the right side.
+        def has_key(rules, key):
+            for v in rules.values():
+                for d in v:
+                    if key in d: return True
+            return False
+
         my_rules = MultiValueDict()
-        for ntkey,v in self.grules.iteritems():
-            if self.has_key(ntkey) or '$START' in ntkey:
+        for ntkey,v in rules.iteritems():
+            if has_key(rules, ntkey) or '$START' in ntkey:
                 my_rules[ntkey] = v
         return "\n".join(["%s ::= %s" % (key, "\n\t| ".join(my_rules[key])) for key in my_rules.keys()])
 
