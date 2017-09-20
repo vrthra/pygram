@@ -30,6 +30,38 @@ def scrub(obj):
     else:
         return None
 
+
+def expand(key, value):
+    if type(value) in [dict, list]:
+        return [("%s_%s" % (key, k), v) for k,v in flatten(value).items()]
+    else:
+        return [(key, value)]
+
+def flatten(d):
+    if   isinstance(d, dict):
+        return dict([item for k,v in d.items() for item in expand(k,v)])
+    elif isinstance(d, list):
+        return dict([item for k,v in enumerate(d) for item in expand(k,v)])
+    else:
+        return d
+
+
+def xflatten(y):
+    out = {}
+    def walk(x, name=''):
+        if type(x) is dict:
+            for a in x:
+                walk(x[a], name + a + '_')
+        elif type(x) is list:
+            i = 0
+            for a in x:
+                walk(a, name + str(i) + '_')
+                i += 1
+        else:
+            out[name[:-1]] = x
+    walk(y)
+    return out
+
 class Tracer(object):
     """ The context manager that manages trace hooking and unhooking. """
     def __init__(self, i):
@@ -75,14 +107,14 @@ class Tracer(object):
            my_parameters[name] = my_locals[name]
            del my_locals[name]
 
-        frame_env['variables'] = scrub(my_locals)
-        frame_env['parameters'] = scrub(my_parameters)
+        frame_env['variables'] = flatten(scrub(my_locals))
+        frame_env['parameters'] = flatten(scrub(my_parameters))
 
         frame_env['self'] = {}
         if hasattr(vself, '__dict__') and type(vself.__dict__) in [dict]:
             clazz = vself.__class__.__name__
             frame_env['self'].update({'%s.%s' % (clazz, k):v for (k,v) in
-                 scrub(vself.__dict__).iteritems()})
+                 flatten(scrub(vself.__dict__)).iteritems()})
         frame_env['event'] = loc['event']
 
         print >> sys.stderr, json.dumps(frame_env)
