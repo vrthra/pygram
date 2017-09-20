@@ -4,7 +4,9 @@ import json
 import induce
 
 with induce.grammar() as g:
-    for sframe in induce.slurplarg():
-        if len(sframe.strip()) == 0: continue # end of a complete activation
+    for sframe in induce.slurplstriparg():
+        if len(sframe.strip()) == 0:
+            g.reset()
+            continue # end of a complete activation
         jframe = json.loads(sframe)
         g.update(jframe)

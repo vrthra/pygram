@@ -31,7 +31,7 @@ class Tracer(object):
         """ unhook """
         sys.settrace(None)
         # print an empty record to indicate one full invocation.
-        print
+        print >> sys.stderr
 
     def process_frame(self, frame, loc):
         """
@@ -71,7 +71,7 @@ class Tracer(object):
                  only_strings(vself.__dict__).iteritems()})
         frame_env['event'] = loc['event']
 
-        print json.dumps(frame_env)
+        print >> sys.stderr, json.dumps(frame_env)
 
 
     def tracer(self):

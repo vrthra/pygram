@@ -1,7 +1,13 @@
 from urlparse import urlparse
-import helpers, induce
+import induce
 
-with induce.grammar() as g:
-    for l in helpers.slurplstriparg():
-       with induce.Tracer(l, g):
-          urlparse(l)
+data='''\
+http://www.st.cs.uni-saarland.de/zeller#ref
+https://www.cispa.saarland:80/bar
+http://foo@google.com:8080/bar?q=r#ref2\
+'''
+
+for l in data.split('\n'):
+    print l
+    with induce.Tracer(l):
+        urlparse(l)

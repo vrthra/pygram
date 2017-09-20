@@ -2,54 +2,33 @@ import sys, collections
 import config as cfg
 from contextlib import contextmanager
 from Ordered import MultiValueDict, OrderedSet
+# TODO: urlparse - url param is modified by urlparse, which makes us miscreate
+# the grammar
 
 class Grammar(object):
     def __init__(self):
         self.grules = MultiValueDict()
-        self.environment = MultiValueDict()
         self.frameenv = MultiValueDict()
         self.initialized = False
         self.my_initial_rules = MultiValueDict()
 
-    def initial_rules(self, fkey):
-        fname = self.frameenv[fkey]['func_name']
+    def reset(self):
+        self.my_initial_rules = MultiValueDict()
+        self.frameenv = MultiValueDict()
+
+    def input_rules(self, fkey):
         params = self.frameenv[fkey]['parameters'].copy()
         params.update(self.frameenv[fkey]['self']) # will not shadow because the format is cname.attr
 
         # for this function
-        if not hasattr(self.my_initial_rules, fname):
+        if not self.my_initial_rules.get(fkey):
             rules = MultiValueDict()
             # add rest of parameters
             for (k,v) in params.iteritems():
                 rules.setdefault(self.nt(k), OrderedSet()).add(v)
-            self.my_initial_rules[fname] = rules
+            self.my_initial_rules[fkey] = rules
 
-        return self.my_initial_rules[fname]
-
-    def init_start_rule(self, fkey, fname, params, vself):
-        # The special-case for start symbol. This is for the entire grammar.
-        # We initialize $START with the first string parameter.
-        # self may also contain input values sometimes.
-        if not self.initialized:
-            paramstr = " ".join([self.nt(k) for (k,v) in params.items() + vself.items()])
-            self.grules["$START:%s" % fname] = OrderedSet([paramstr])
-            self.initialized = True
-
-    def decorate(self, fname, d):
-        return {"%s:%s" % (fname, k):v for (k,v) in self.non_trivial(d).iteritems()}
-
-    def strip_unused_params(self, rules, params, vself):
-        # params and self should not be disjunctive here.
-        my_rules = rules.copy()
-        for k in vself.keys():
-            ntk = self.nt(k)
-            if rules.get(ntk):
-                v = rules[ntk]
-                found = False
-                for d in v:
-                   if '$' in d: found = True
-                   if not found: del my_rules[ntk]
-        return my_rules
+        return self.my_initial_rules[fkey]
 
     def get_grammar(self, frameenv):
         """
@@ -60,7 +39,7 @@ class Grammar(object):
         fkey = '%s:%s' % (fname, frameenv['id'])
         params = self.decorate(fname, frameenv['parameters'])
         vself = frameenv['self']
-        self.init_start_rule(fkey, fname, params, vself)
+        self.start_rule(fkey, fname, params, vself)
 
         # TODO: Within a particular block execution the same variable
         # normally does not take different values. This is assumed for
@@ -84,7 +63,7 @@ class Grammar(object):
         # now, if a function is invoked on the self, it would still contain the entire input
         # which gets added as a disjunction to self.input. Needed: We need to consider only
         # those variables in self that was touched during the function execution.
-        my_rules = self.initial_rules(fkey)
+        my_rules = self.input_rules(fkey)
 
         my_local_env.merge_dict(self.decorate(fname,frameenv['variables']))
 
@@ -147,11 +126,38 @@ class Grammar(object):
     def non_trivial(self, d):
         return {k:v for (k,v) in d.iteritems() if len(v) >= 2}
 
+    def start_rule(self, fkey, fname, params, vself):
+        # The special-case for start symbol. This is for the entire grammar.
+        # We initialize $START with the first string parameter.
+        # self may also contain input values sometimes.
+        if not self.initialized:
+            paramstr = " ".join([self.nt(k) for (k,v) in params.items() + vself.items()])
+            self.grules["$START:%s" % fname] = OrderedSet([paramstr])
+            self.initialized = True
+
+    def decorate(self, fname, d):
+        return {"%s:%s" % (fname, k):v for (k,v) in self.non_trivial(d).iteritems()}
+
+    def strip_unused_params(self, rules, params, vself):
+        if not cfg.strip_unused_params: return rules
+        # params and self should not be disjunctive here.
+        my_rules = rules.copy()
+        for k in vself.keys():
+            ntk = self.nt(k)
+            if rules.get(ntk):
+                v = rules[ntk]
+                found = False
+                for d in v:
+                   if '$' in d: found = True
+                   if not found: del my_rules[ntk]
+        return my_rules
+
+
 @contextmanager
 def grammar(hide=False):
     mygrammar = Grammar()
     yield mygrammar
     if not hide:
       print("_" * 80)
-      print("Merged grammar ->\n%s" % mygrammar)
+      print(mygrammar)
       print("_" * 80)

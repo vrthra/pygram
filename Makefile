@@ -39,6 +39,8 @@ python3projects=\
 tnayajson \
 tconfigparser
 
+.PRECIOUS: %.js %.g
+
 all: python2projects python3projects
 	@echo done
 
@@ -189,10 +191,14 @@ t_apachelogparser: $(CONFIG)
 
 
 
-accesslog.js: src/induce/Tracer.py
-	$(env) $(python2) tests/t_accesslog.py > $@.tmp
+%.js: src/induce/Tracer.py
+	$(env) $(python2) tests/$*.py 2> $@.tmp
 	mv $@.tmp $@
 
-accesslog.grammar: accesslog.js
-	$(env) $(python2) ./src/merge.py accesslog.js
+%.g: %.js
+	$(env) $(python2) ./src/merge.py $? > $@.tmp
+	mv $@.tmp $@
+
+%.grammar:
+	$(env) $(python2) tests/$*.py 3>&2 2>&1 1>&3 | $(env) $(python2) ./src/onlinemerge.py
 

@@ -1,6 +1,4 @@
-import unittest
 import apache_log_parser
-from pprint import pprint
 import induce
 
 
@@ -47,17 +45,7 @@ $GETWIDTH:OP ::= $_COMPILE:OP
 $_COMPILE:OP ::= in\
 '''
 
-# TODO: Here, Linux is substituted by L$OPux.
-
-class TestApacheLogParser(unittest.TestCase):
-    def test_induce(self):
-        with induce.grammar(True) as g:
-            line_parser = apache_log_parser.make_parser("%h <<%P>> %t %Dus \"%r\" %>s %b  \"%{Referer}i\" \"%{User-Agent}i\" %l %u")
-            with induce.Tracer(myinput, g):
-                line_parser(myinput)
-        val = "%s" % g
-        self.assertEqual(val, mygrammar)
-
-if __name__ == '__main__':
-    unittest.main()
+line_parser = apache_log_parser.make_parser("%h <<%P>> %t %Dus \"%r\" %>s %b  \"%{Referer}i\" \"%{User-Agent}i\" %l %u")
+with induce.Tracer(myinput):
+    line_parser(myinput)
 
