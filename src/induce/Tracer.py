@@ -15,14 +15,13 @@ import config as cfg
 # Globals are like self in that it may also be considered an input.
 # However, if there is a shadowing local variable, we should ignore
 # the global.
-# TODO: we need to also take care of values assigned in dicts/arrays
 
 def scrub(obj):
     """
     Remove everything except strings.
     """
     if isinstance(obj, dict):
-        return {k:v for k,v in [(k,scrub(v)) for (k,v) in obj.iteritems()] if v != None}
+        return scrub_dict(obj)
     elif isinstance(obj, list):
         return [k for k in [scrub(k) for k in obj] if k != None]
     elif isinstance(obj, str):
@@ -30,6 +29,8 @@ def scrub(obj):
     else:
         return None
 
+def scrub_dict(obj):
+    return {k:v for k,v in [(k,scrub(v)) for (k,v) in obj.iteritems()] if v != None}
 
 def expand(key, value):
     if type(value) in [dict, list]:
@@ -44,23 +45,6 @@ def flatten(d):
         return dict([item for k,v in enumerate(d) for item in expand(k,v)])
     else:
         return d
-
-
-def xflatten(y):
-    out = {}
-    def walk(x, name=''):
-        if type(x) is dict:
-            for a in x:
-                walk(x[a], name + a + '_')
-        elif type(x) is list:
-            i = 0
-            for a in x:
-                walk(a, name + str(i) + '_')
-                i += 1
-        else:
-            out[name[:-1]] = x
-    walk(y)
-    return out
 
 class Tracer(object):
     """ The context manager that manages trace hooking and unhooking. """
@@ -107,14 +91,14 @@ class Tracer(object):
            my_parameters[name] = my_locals[name]
            del my_locals[name]
 
-        frame_env['variables'] = flatten(scrub(my_locals))
-        frame_env['parameters'] = flatten(scrub(my_parameters))
+        frame_env['variables'] = flatten(scrub_dict(my_locals))
+        frame_env['parameters'] = flatten(scrub_dict(my_parameters))
 
         frame_env['self'] = {}
         if hasattr(vself, '__dict__') and type(vself.__dict__) in [dict]:
             clazz = vself.__class__.__name__
             frame_env['self'].update({'%s.%s' % (clazz, k):v for (k,v) in
-                 flatten(scrub(vself.__dict__)).iteritems()})
+                 flatten(scrub_dict(vself.__dict__)).iteritems()})
         frame_env['event'] = loc['event']
 
         print >> sys.stderr, json.dumps(frame_env)
