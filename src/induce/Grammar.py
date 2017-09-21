@@ -30,8 +30,8 @@ class Grammar(object):
         params.update(self.non_trivial(frameenv['self']))
 
         # for this function (blocks have same fnname)
-        if self.my_initial_rules.get(fkey):
-            raise Exception("%s: this function should not have been saved before first call" % fkey) # Check and remove
+        #if self.my_initial_rules.get(fkey):
+        #    raise Exception("%s: this function should not have been saved before first call" % fkey) # Check and remove
         rules = MultiValueDict()
         # add rest of parameters
         for (k,v) in params.iteritems():
@@ -60,7 +60,8 @@ class Grammar(object):
 
         # Save the parameters when the call is made because the parameters can
         # be overwritten subsequently.
-        if frameenv['event'] == 'call': self.save_params(fkey, fname, frameenv)
+        if frameenv['event'] == 'call':
+            self.save_params(fkey, fname, frameenv)
 
         if frameenv['event'] == 'line':
             # TODO: Within a particular block execution the same variable
@@ -69,6 +70,7 @@ class Grammar(object):
             pass
 
         if frameenv['event'] != 'return': return {}
+        # remove the initial_rules for fkey : TODO
 
         my_rules = self.input_rules(fkey)
 

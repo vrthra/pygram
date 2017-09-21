@@ -45,10 +45,9 @@ def flatten(d):
 
 class Tracer(object):
     """ The context manager that manages trace hooking and unhooking. """
-    def __init__(self, i):
+    def __init__(self):
         self.method = self.tracer()
         self.frameenv = Ordered.MultiValueDict()
-        self.input = i
 
     def __enter__(self):
         """ set hook """
