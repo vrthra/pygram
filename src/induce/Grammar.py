@@ -8,16 +8,15 @@ from Ordered import MultiValueDict, OrderedSet
 # an entirely new variable. This needs to be handled by creating a new
 # variable each time a variable is assigned to.
 
+initialized = False
+
 class Grammar(object):
     def __init__(self):
         self.grules = MultiValueDict()
-        self.frameenv = MultiValueDict()
-        self.initialized = False
         self.my_initial_rules = MultiValueDict()
 
     def reset(self):
         self.my_initial_rules = MultiValueDict()
-        self.frameenv = MultiValueDict()
 
     def input_rules(self, fkey):
         if self.my_initial_rules.get(fkey) == None:
@@ -49,6 +48,7 @@ class Grammar(object):
         fkey = '%s:%s' % (fname, frameenv['id'])
         params = self.decorate(fname, frameenv['parameters'])
         vself = frameenv['self']
+
         self.start_rule(fkey, fname, params, vself)
 
         # get the initial rules from parameters.
@@ -157,13 +157,14 @@ class Grammar(object):
     def non_trivial(self, d): return {k:v for (k,v) in d.iteritems() if len(v) >= 2}
 
     def start_rule(self, fkey, fname, params, vself):
+        global initialized
         # The special-case for start symbol. This is for the entire grammar.
         # We initialize $START with the first string parameter.
         # self may also contain input values sometimes.
-        if not self.initialized:
+        if not initialized:
             paramstr = " ".join([self.nt(k) for (k,v) in params.items() + vself.items()])
             self.grules["$START:%s" % fname] = OrderedSet([paramstr])
-            self.initialized = True
+            initialized = True
 
     def decorate(self, fname, d):
         return {"%s:%s" % (fname, k):v for (k,v) in self.non_trivial(d).iteritems()}
