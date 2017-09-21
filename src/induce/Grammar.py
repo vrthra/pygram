@@ -2,8 +2,11 @@ import sys, collections
 import config as cfg
 from contextlib import contextmanager
 from Ordered import MultiValueDict, OrderedSet
-# TODO: urlparse - url param is modified by urlparse, which makes us miscreate
-# the grammar
+
+# TODO:
+# In some cases, like urlparse:url, one of the parameter names are reused as
+# an entirely new variable. This needs to be handled by creating a new
+# variable each time a variable is assigned to.
 
 class Grammar(object):
     def __init__(self):
@@ -17,18 +20,25 @@ class Grammar(object):
         self.frameenv = MultiValueDict()
 
     def input_rules(self, fkey):
-        params = self.frameenv[fkey]['parameters'].copy()
-        params.update(self.frameenv[fkey]['self']) # will not shadow because the format is cname.attr
-
-        # for this function
-        if not self.my_initial_rules.get(fkey):
-            rules = MultiValueDict()
-            # add rest of parameters
-            for (k,v) in params.iteritems():
-                rules.setdefault(self.nt(k), OrderedSet()).add(v)
-            self.my_initial_rules[fkey] = rules
-
+        if self.my_initial_rules.get(fkey) == None:
+            raise Exception("%s: input_rules event:call should have happened before this" % fkey)
         return self.my_initial_rules[fkey]
+
+
+    def save_params(self, fkey, fname, frameenv):
+        params = self.decorate(fname, frameenv['parameters'])
+        # will not shadow because the format is cname.attr
+        params.update(self.non_trivial(frameenv['self']))
+
+        # for this function (blocks have same fnname)
+        if self.my_initial_rules.get(fkey):
+            raise Exception("%s: this function should not have been saved before first call" % fkey) # Check and remove
+        rules = MultiValueDict()
+        # add rest of parameters
+        for (k,v) in params.iteritems():
+            rules.setdefault(self.nt(k), OrderedSet()).add(v)
+        self.my_initial_rules[fkey] = rules
+
 
     def get_grammar(self, frameenv):
         """
@@ -41,31 +51,47 @@ class Grammar(object):
         vself = frameenv['self']
         self.start_rule(fkey, fname, params, vself)
 
-        # TODO: Within a particular block execution the same variable
-        # normally does not take different values. This is assumed for
-        # now, but this should be converted to a disjunction.
-        if frameenv['event'] != 'return': return {}
-
-        my_local_env = MultiValueDict()
-
-        if self.frameenv.get(fkey) == None:
-           # first activation. Save all interesting stuff
-           self.frameenv[fkey] = {}
-           self.frameenv[fkey]['parameters'] = self.decorate(fname, frameenv['parameters'])
-           self.frameenv[fkey]['func_name'] = frameenv['func_name']
-           self.frameenv[fkey]['self'] = self.non_trivial(frameenv['self'])
-        else:
-           my_local_env.merge_dict(self.non_trivial(frameenv['self']))
-
-
         # get the initial rules from parameters.
         # Here is a problem. We allow self.* as one of the inputs to a function.
-        # now, if a function is invoked on the self, it would still contain the entire input
-        # which gets added as a disjunction to self.input. Needed: We need to consider only
-        # those variables in self that was touched during the function execution.
+        # now, if a function is invoked on the self, it would still contain the
+        # entire input which gets added as a disjunction to self.input.
+        # Needed: We need to consider only those variables in self that was
+        # touched during the function execution.
+
+        # Save the parameters when the call is made because the parameters can
+        # be overwritten subsequently.
+        if frameenv['event'] == 'call': self.save_params(fkey, fname, frameenv)
+
+        if frameenv['event'] == 'line':
+            # TODO: Within a particular block execution the same variable
+            # normally does not take different values. This is assumed for
+            # now, but this should be converted to a disjunction.
+            pass
+
+        if frameenv['event'] != 'return': return {}
+
         my_rules = self.input_rules(fkey)
 
+        my_local_env = MultiValueDict()
+        # TODO: for self, and other objects, it may be worthwhile to use
+        # self.id() as a part of decoration, because the alternatives of
+        # a particular object may be different from anothe object of the
+        # same class.
+        my_local_env.merge_dict(self.non_trivial(frameenv['self']))
         my_local_env.merge_dict(self.decorate(fname,frameenv['variables']))
+
+        # Set the return value
+        return_value = frameenv['arg']
+        if  return_value != None:
+            return_name = "%s:%s" % (frameenv['caller_name'], frameenv['func_name'])
+            if isinstance(return_value, dict):
+                for key,value in return_value.iteritems():
+                    my_local_env.setdefault("%s_%s" % (return_name, key), OrderedSet()).add(value)
+            elif isinstance(return_value, list):
+                for key,value in enumerate(return_value):
+                    my_local_env.setdefault("%s_%s" % (return_name, key), OrderedSet()).add(value)
+            else:
+                my_local_env.setdefault(return_name, OrderedSet()).add(return_value)
 
         # for each environmental variable, look for a match of its value in the
         # input string or its alternatives in each rule.

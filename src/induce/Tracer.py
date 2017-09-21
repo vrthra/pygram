@@ -21,16 +21,13 @@ def scrub(obj):
     Remove everything except strings.
     """
     if isinstance(obj, dict):
-        return scrub_dict(obj)
+        return {k:v for k,v in [(k,scrub(v)) for (k,v) in obj.iteritems()] if v != None}
     elif isinstance(obj, list):
         return [k for k in [scrub(k) for k in obj] if k != None]
     elif isinstance(obj, str):
         return obj
     else:
         return None
-
-def scrub_dict(obj):
-    return {k:v for k,v in [(k,scrub(v)) for (k,v) in obj.iteritems()] if v != None}
 
 def expand(key, value):
     if type(value) in [dict, list]:
@@ -63,7 +60,7 @@ class Tracer(object):
         # print an empty record to indicate one full invocation.
         print >> sys.stderr
 
-    def process_frame(self, frame, loc):
+    def process_frame(self, frame, loc, event, arg):
         """
         For the current frame (distinguished by id), save the parameter values,
         and save all the values that each variable takes. Process globals and
@@ -82,6 +79,7 @@ class Tracer(object):
 
         frame_env['id'] = frame.__hash__()
         frame_env['func_name'] = loc['name']
+        frame_env['caller_name'] = loc['cname']
         my_parameters = {}
         my_locals = frame.f_locals.copy()
 
@@ -91,15 +89,16 @@ class Tracer(object):
            my_parameters[name] = my_locals[name]
            del my_locals[name]
 
-        frame_env['variables'] = flatten(scrub_dict(my_locals))
-        frame_env['parameters'] = flatten(scrub_dict(my_parameters))
+        frame_env['variables'] = flatten(scrub(my_locals))
+        frame_env['parameters'] = flatten(scrub(my_parameters))
 
         frame_env['self'] = {}
         if hasattr(vself, '__dict__') and type(vself.__dict__) in [dict]:
             clazz = vself.__class__.__name__
             frame_env['self'].update({'%s.%s' % (clazz, k):v for (k,v) in
-                 flatten(scrub_dict(vself.__dict__)).iteritems()})
-        frame_env['event'] = loc['event']
+                 flatten(scrub(vself.__dict__)).iteritems()})
+        frame_env['event'] = event
+        frame_env['arg'] = flatten(scrub(arg))
 
         print >> sys.stderr, json.dumps(frame_env)
 
@@ -110,10 +109,8 @@ class Tracer(object):
         def traceit(frame, event, arg):
             # if event != 'return': return traceit
             (n, f, l) = loc(frame)
-            if cfg.extra_verbose:
-                (cn, cf, cl) = loc(frame.f_back)
-                print('%s() %s:%s\n\t%s()<- %s:%s' % (n, f, l, cn, cf, cl))
-
-            self.process_frame(frame, {'name':n, 'file':f, 'line':l, 'event':event})
+            (cn, cf, cl) = loc(frame.f_back)
+            if cfg.extra_verbose: print('%s() %s:%s\n\t%s()<- %s:%s' % (n, f, l, cn, cf, cl))
+            self.process_frame(frame, {'name':n, 'file':f, 'line':l, 'cname': cn, 'cfile': cf, 'cline': cl}, event, arg)
             return traceit
         return traceit
