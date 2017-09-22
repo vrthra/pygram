@@ -46,6 +46,6 @@ $_COMPILE:OP ::= in\
 '''
 
 parser = apache_log_parser.Parser("%h <<%P>> %t %Dus \"%r\" %>s %b  \"%{Referer}i\" \"%{User-Agent}i\" %l %u")
-with induce.Tracer(myinput):
+with induce.Tracer():
     parser.parse(myinput)
 

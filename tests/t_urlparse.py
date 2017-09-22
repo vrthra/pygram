@@ -9,5 +9,5 @@ http://foo@google.com:8080/bar?q=r#ref2\
 
 for l in data.split('\n'):
     print l
-    with induce.Tracer(l):
+    with induce.Tracer():
         urlparse(l)

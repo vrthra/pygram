@@ -40,7 +40,7 @@ for line in data.split('\n'):
   words = line.split()
   if not words: continue
   url = words[0]
-  with induce.Tracer(url):
+  with induce.Tracer():
      parts = urlparser.urlparse(url)
      #print '%-10s : %s' % (url, parts)
   #abs = urlparser.urljoin(base, url)

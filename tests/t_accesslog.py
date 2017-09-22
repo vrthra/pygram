@@ -17,5 +17,5 @@ $ANALYZE:USERAGENT ::= Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.googl
 '''
 
 summary = accesslog.LogAnalyzer(myinput, 5)
-with induce.Tracer(myinput):
+with induce.Tracer():
     summary.analyze()
