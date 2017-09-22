@@ -201,7 +201,9 @@ class Grammar(object):
                 v = rules[ntk]
                 found = False
                 for d in v:
-                   if '$' in d: found = True
+                   if '$' in d:
+                       found = True
+                       break
                 if not found: del my_rules[ntk]
         return my_rules
 
