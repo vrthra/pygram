@@ -16,14 +16,18 @@ import config as cfg
 # However, if there is a shadowing local variable, we should ignore
 # the global.
 
-def scrub(obj):
+def scrub(obj, counter=10): # 640kb aught to be enough for anybody
     """
     Remove everything except strings.
     """
+    if counter < 0: return None
+
     if isinstance(obj, dict):
-        return {k:v for k,v in [(k,scrub(v)) for (k,v) in obj.iteritems()] if v != None}
+        lst = [(k,scrub(v, counter-1)) for (k,v) in obj.iteritems()]
+        return {k:v for k,v in lst if v != None}
     elif isinstance(obj, list):
-        return [k for k in [scrub(k) for k in obj] if k != None]
+        lst = [scrub(k, counter-1) for k in obj]
+        return [k for k in lst if k != None]
     elif isinstance(obj, str):
         return obj
     else:
