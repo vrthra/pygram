@@ -136,7 +136,7 @@ class Grammar(object):
 
     def strip_unused_rules(self, rules):
         # strip out rules (except start) that are not in the right side.
-        # this should have more intelligence to avoid keeping circular rules
+        # this has intelligence to avoid keeping circular rules
         if not cfg.strip_unused_rules: return rules
         def has_key(rules, key):
             for v in rules.values():
@@ -144,15 +144,25 @@ class Grammar(object):
                     if key in d: return True
             return False
 
-        my_rules = MultiValueDict()
-        for ntkey,v in rules.iteritems():
-            if has_key(rules, ntkey) or '$START' in ntkey:
-                my_rules[ntkey] = v
-        return my_rules
+        new_rules = MultiValueDict()
+        new_rules['$START'] = rules['$START']
+
+        while True:
+            new_keys = []
+            for rulevar in rules.keys():
+                if rulevar in new_rules.keys(): continue
+                if has_key(new_rules, rulevar):
+                    new_keys.append(rulevar)
+                    break
+            for k in new_keys:
+                new_rules[k] = rules[k]
+            if len(new_keys) == 0: break
+
+        return new_rules
 
     def grammar_to_string(self, rules):
-        return "\n".join(["%s ::= %s" % (key, "\n\t| ".join(
-            [i.replace('\n', '\\n') for i in rules[key]])) for key in rules.keys()])
+        lst = ["%s ::= %s" % (key, "\n\t| ".join([i.replace('\n', '\\n') for i in rules[key]])) for key in rules.keys()]
+        return "\n".join(lst)
 
     def nt(self, var): return "$%s" % var.upper()
 
@@ -174,7 +184,8 @@ class Grammar(object):
         # self may also contain input values sometimes.
         if not initialized:
             paramstr = " ".join([self.nt(k) for (k,v) in params.items() + vself.items()])
-            self.grules["$START:%s" % fname] = OrderedSet([paramstr])
+            #self.grules["$START:%s" % fname] = OrderedSet([paramstr])
+            self.grules["$START"] = OrderedSet([paramstr])
             initialized = True
 
     def decorate(self, fname, d):
@@ -191,7 +202,7 @@ class Grammar(object):
                 found = False
                 for d in v:
                    if '$' in d: found = True
-                   if not found: del my_rules[ntk]
+                if not found: del my_rules[ntk]
         return my_rules
 
     def gc(self):
