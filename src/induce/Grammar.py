@@ -87,13 +87,15 @@ class Grammar(object):
         if  return_value != None:
             return_name = "%s:%s" % (frameenv['caller_name'], frameenv['func_name'])
             if isinstance(return_value, dict):
-                for key,value in return_value.iteritems():
+                for key,value in self.non_trivial(return_value).iteritems():
                     my_local_env.setdefault("%s_%s" % (return_name, key), OrderedSet()).add(value)
             elif isinstance(return_value, list):
-                for key,value in enumerate(return_value):
+                for key,value in enumerate(self.non_trivial(return_value)):
                     my_local_env.setdefault("%s_%s" % (return_name, key), OrderedSet()).add(value)
             else:
-                my_local_env.setdefault(return_name, OrderedSet()).add(return_value)
+                rv = self.non_trivial(return_value)
+                if rv != None:
+                    my_local_env.setdefault(return_name, OrderedSet()).add(rv)
 
         # for each environmental variable, look for a match of its value in the
         # input string or its alternatives in each rule.
@@ -156,7 +158,14 @@ class Grammar(object):
 
     def longest_first(self, myset): return sorted([l for l in list(myset)], key=len, reverse=True)
 
-    def non_trivial(self, d): return {k:v for (k,v) in d.iteritems() if len(v) >= 2}
+    def non_trivial(self, d):
+        if isinstance(d, dict):
+            return {k:v for (k,v) in d.iteritems() if len(v) >= 2}
+        elif isinstance(d, list):
+            return [v for v in d if len(v) >= 2]
+        elif len(d) >= 0:
+            return d
+        return None
 
     def start_rule(self, fkey, fname, params, vself):
         global initialized
