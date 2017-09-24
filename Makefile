@@ -32,17 +32,17 @@ t_apachelogparser: $(CONFIG)
 
 
 %.js: src/induce/Tracer.py
-	$(env) $(python2) tests/$*.py data/$*.dat 2> $@.tmp
+	$(env) $(python3) tests/$*.py data/$*.dat 2> $@.tmp
 	mv $@.tmp $@
 
 %.g: %.js
-	$(env) $(python2) ./src/merge.py $? > $@.tmp
+	$(env) $(python3) ./src/merge.py $? > $@.tmp
 	cat $@.tmp
 	mv $@.tmp $@
 
 %.grammar:
-	$(env) $(python2) tests/$*.py 3>&2 2>&1 1>&3 | $(env) $(python2) ./src/onlinemerge.py
+	$(env) $(python3) tests/$*.py 3>&2 2>&1 1>&3 | $(env) $(python2) ./src/onlinemerge.py
 
 
 lint:
-	 $(lint) src/induce/Grammar.py src/induce/Tracer.py
+	 $(python3) -m pylint src/induce/

@@ -77,7 +77,7 @@ class OrderedSet(collections.MutableSet):
             return OrderedSet([self.items[i] for i in index])
         else:
             raise TypeError("Don't know how to index an OrderedSet by %r" %
-                    index)
+                            index)
 
     def copy(self):
         return OrderedSet(self)
@@ -206,9 +206,9 @@ class OrderedSet(collections.MutableSet):
 
 class MultiValueDict(collections.OrderedDict):
     def merge(self, g2):
-        for k,v in g2.items():
+        for k, v in g2.items():
             self[k] = self.setdefault(k, OrderedSet()) | v
 
     def merge_dict(self, d):
-        for k,v in d.items():
+        for k, v in d.items():
             self.setdefault(k, OrderedSet()).add(v)

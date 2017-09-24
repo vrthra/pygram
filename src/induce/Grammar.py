@@ -19,7 +19,7 @@ def non_trivial(myvar):
     only contain a string under a certain length as a value.
     """
     if isinstance(myvar, dict):
-        return {k:v for (k, v) in myvar.iteritems() if len(v) >= 2}
+        return {k:v for (k, v) in myvar.items() if len(v) >= 2}
     elif isinstance(myvar, list):
         return [v for v in myvar if len(v) >= 2]
     elif len(myvar) >= 0:
@@ -31,7 +31,7 @@ def add_prefix(fname, mydict):
     Adds a prefix (the current function name is accepted as the parameter)
     to the variable name for a dict
     """
-    return {"%s:%s" % (fname, k):v for (k, v) in non_trivial(mydict).iteritems()}
+    return {"%s:%s" % (fname, k):v for (k, v) in non_trivial(mydict).items()}
 
 def grammar_to_string(rules):
     """
@@ -39,7 +39,7 @@ def grammar_to_string(rules):
     """
     lst = ["%s ::= %s" % (key, "\n\t| ".join([i.replace('\n', '\\n')
                                               for i in rules[key]]))
-           for key in rules.keys()]
+           for key in list(rules.keys())]
     return "\n".join(lst)
 
 def nonterm(var):
@@ -59,7 +59,7 @@ def strip_unused_self(rules, vself):
     if not cfg.strip_unused_self: return rules
     # params and self should not be disjunctive here.
     my_rules = rules.copy()
-    for k in vself.keys():
+    for k in list(vself.keys()):
         ntk = nonterm(k)
         if rules.get(ntk):
             prods = rules[ntk]
@@ -79,7 +79,7 @@ def strip_unused_rules(rules):
     if not cfg.strip_unused_rules: return rules
     def has_key(rules, key):
         """Check if a key is present in RHS of given set or rules"""
-        for dvals in rules.values():
+        for dvals in list(rules.values()):
             for prodstr in dvals:
                 if key in prodstr: return True
         return False
@@ -89,8 +89,8 @@ def strip_unused_rules(rules):
 
     while True:
         new_keys = []
-        for rulevar in rules.keys():
-            if rulevar in new_rules.keys(): continue
+        for rulevar in list(rules.keys()):
+            if rulevar in list(new_rules.keys()): continue
             if has_key(new_rules, rulevar):
                 new_keys.append(rulevar)
                 break
@@ -106,7 +106,7 @@ def get_return_value(frameenv):
     if return_value:
         return_name = "%s:%s" % (frameenv['caller_name'], frameenv['func_name'])
         if isinstance(return_value, dict):
-            for key, value in non_trivial(return_value).iteritems():
+            for key, value in non_trivial(return_value).items():
                 my_rv.setdefault("%s_%s" % (return_name, key), OrderedSet()).add(value)
         elif isinstance(return_value, list):
             for key, value in enumerate(non_trivial(return_value)):
@@ -153,7 +153,7 @@ class Grammar(object):
         params.update(non_trivial(frameenv['self']))
         rules = MultiValueDict()
         # add rest of parameters
-        for (key, val) in params.iteritems():
+        for (key, val) in params.items():
             rules.setdefault(nonterm(key), OrderedSet()).add(val)
         self.my_initial_rules[fkey] = rules
 
@@ -210,18 +210,18 @@ class Grammar(object):
         my_rules = self.input_rules(fkey)
         while True:
             new_rules = MultiValueDict()
-            for (envvar, envval_djs) in my_local_env.iteritems():
+            for (envvar, envval_djs) in my_local_env.items():
                 for envval in longest_first(envval_djs):
                     # envvals are disjunctions (esp for recursive funcs)
                     present_in_input = False
-                    for key, alternatives in my_rules.iteritems():
+                    for key, alternatives in my_rules.items():
                         matched = [i for i in alternatives if envval in i]
                         if matched: present_in_input = True
                         for rstr in matched:
                             alternatives.replace(rstr, rstr.replace(envval, nonterm(envvar)))
                     if present_in_input: new_rules.setdefault(envvar, OrderedSet()).add(envval)
 
-            for key in new_rules.keys():
+            for key in list(new_rules.keys()):
                 my_rules[nonterm(key)] = new_rules[key] # Add new rule to grammar
                 del my_local_env[key] # Do not expand this again
 
@@ -250,7 +250,7 @@ class Grammar(object):
             fname = frameenv['func_name']
             params = add_prefix(fname, frameenv['parameters'])
             vself = frameenv['self']
-            paramstr = " ".join([nonterm(k) for (k, _) in params.items() + vself.items()])
+            paramstr = " ".join([nonterm(k) for (k, _) in list(params.items()) + list(vself.items())])
             self.grules["$START"] = OrderedSet([paramstr])
             self.initialized = True
 
@@ -270,4 +270,4 @@ def grammar(hide=False):
     yield mygrammar
     mygrammar.ggc()
     lines = "_" * 80
-    if not hide: print("%s\n%s\n%s" % (lines, mygrammar, lines))
+    if not hide: print(("%s\n%s\n%s" % (lines, mygrammar, lines)))

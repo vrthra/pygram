@@ -1,4 +1,5 @@
-from Tracer import Tracer
-from Grammar import Grammar, grammar
-from Ordered import OrderedSet, MultiValueDict
-from helpers import *
+"""Language induction """
+from induce.Tracer import Tracer
+from induce.Grammar import Grammar, grammar
+from induce.Ordered import OrderedSet, MultiValueDict
+from induce.helpers import slurparg, slurplarg, slurplstriparg

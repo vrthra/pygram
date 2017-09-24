@@ -23,7 +23,7 @@ def scrub(obj, counter=10): # 640kb aught to be enough for anybody
     if counter < 0: return None
 
     if isinstance(obj, dict):
-        lst = [(k, scrub(v, counter-1)) for (k, v) in obj.iteritems()]
+        lst = [(k, scrub(v, counter-1)) for (k, v) in obj.items()]
         return {k:v for k, v in lst if v != None}
     elif isinstance(obj, list):
         lst = [scrub(k, counter-1) for k in obj]
@@ -37,7 +37,7 @@ def expand(key, value):
     Expand one level.
     """
     if isinstance(value, (dict, list)):
-        return [("%s_%s" % (key, k), v) for k, v in flatten(value).items()]
+        return [("%s_%s" % (key, k), v) for k, v in list(flatten(value).items())]
     return [(key, value)]
 
 def flatten(val):
@@ -46,7 +46,7 @@ def flatten(val):
     dict.
     """
     if   isinstance(val, dict):
-        return dict([item for k, v in val.items() for item in expand(k, v)])
+        return dict([item for k, v in list(val.items()) for item in expand(k, v)])
     elif isinstance(val, list):
         return dict([item for k, v in enumerate(val) for item in expand(k, v)])
     return val
@@ -91,11 +91,11 @@ def process_frame(frame, loc, event, arg):
         clazz = vself.__class__.__name__
         frame_env['self'].update(
             {'%s.%s' % (clazz, k):v for (k, v) in
-             flatten(scrub(vself.__dict__)).iteritems()})
+             flatten(scrub(vself.__dict__)).items()})
     frame_env['event'] = event
     frame_env['arg'] = flatten(scrub(arg))
 
-    print >> sys.stderr, json.dumps(frame_env)
+    print(json.dumps(frame_env), file=sys.stderr)
 
 
 def tracer():
@@ -133,4 +133,4 @@ class Tracer(object):
         """ unhook """
         sys.settrace(None)
         # print an empty record to indicate one full invocation.
-        print >> sys.stderr
+        print(file=sys.stderr)
