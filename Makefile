@@ -46,3 +46,7 @@ t_apachelogparser: $(CONFIG)
 
 lint:
 	 $(python3) -m pylint src/induce/
+
+
+typecheck:
+	$(python3) -m mypy src/induce/
