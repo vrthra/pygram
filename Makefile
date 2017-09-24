@@ -2,7 +2,8 @@ CONFIG=config.py
 
 python2=python2
 python3=python3
-env=PYTHONPATH=.:./src:./libs:./tests
+env=PYTHONPATH=.:./src:./libs:./tests PATH=$(PATH):~/.local/bin
+lint=~/.local/bin/pylint
 
 .PRECIOUS: %.js %.g
 
@@ -42,3 +43,6 @@ t_apachelogparser: $(CONFIG)
 %.grammar:
 	$(env) $(python2) tests/$*.py 3>&2 2>&1 1>&3 | $(env) $(python2) ./src/onlinemerge.py
 
+
+lint:
+	 $(lint) src/induce/Grammar.py src/induce/Tracer.py

@@ -1,41 +1,160 @@
-import sys, collections
-import config as cfg
+"""
+Grammar inference module
+"""
 from contextlib import contextmanager
-from Ordered import MultiValueDict, OrderedSet
+import config as cfg
+from induce.Ordered import MultiValueDict, OrderedSet
+
+# pylint: disable=C0321
 
 # TODO:
 # In some cases, like urlparse:url, one of the parameter names are reused as
 # an entirely new variable. This needs to be handled by creating a new
 # variable each time a variable is assigned to.
 
-initialized = False
+def non_trivial(myvar):
+    """
+    Removes small and temporary variables -- those that
+    have name length under a certain value or those that
+    only contain a string under a certain length as a value.
+    """
+    if isinstance(myvar, dict):
+        return {k:v for (k, v) in myvar.iteritems() if len(v) >= 2}
+    elif isinstance(myvar, list):
+        return [v for v in myvar if len(v) >= 2]
+    elif len(myvar) >= 0:
+        return myvar
+    return None
+
+def add_prefix(fname, mydict):
+    """
+    Adds a prefix (the current function name is accepted as the parameter)
+    to the variable name for a dict
+    """
+    return {"%s:%s" % (fname, k):v for (k, v) in non_trivial(mydict).iteritems()}
+
+def grammar_to_string(rules):
+    """
+    Convert a given set of rules to their string representation
+    """
+    lst = ["%s ::= %s" % (key, "\n\t| ".join([i.replace('\n', '\\n')
+                                              for i in rules[key]]))
+           for key in rules.keys()]
+    return "\n".join(lst)
+
+def nonterm(var):
+    """Produce a Non Terminal symbol"""
+    return "$%s" % var.upper()
+
+def longest_first(myset):
+    """For a set return a sorted list with longest element first"""
+    return sorted([l for l in list(myset)], key=len, reverse=True)
+
+# TODO: we really do not need to special case self
+# Turn this into just normal objects.
+def strip_unused_self(rules, vself):
+    """
+    Removes references to unused members of self.
+    """
+    if not cfg.strip_unused_self: return rules
+    # params and self should not be disjunctive here.
+    my_rules = rules.copy()
+    for k in vself.keys():
+        ntk = nonterm(k)
+        if rules.get(ntk):
+            prods = rules[ntk]
+            found = False
+            for prod in prods:
+                if '$' in prod:
+                    found = True
+                    break
+            if not found: del my_rules[ntk]
+    return my_rules
+
+def strip_unused_rules(rules):
+    """
+    Strip out rules (except start) that are not in the right side.
+    this has intelligence to avoid keeping circular rules
+    """
+    if not cfg.strip_unused_rules: return rules
+    def has_key(rules, key):
+        """Check if a key is present in RHS of given set or rules"""
+        for dvals in rules.values():
+            for prodstr in dvals:
+                if key in prodstr: return True
+        return False
+
+    new_rules = MultiValueDict()
+    new_rules['$START'] = rules['$START']
+
+    while True:
+        new_keys = []
+        for rulevar in rules.keys():
+            if rulevar in new_rules.keys(): continue
+            if has_key(new_rules, rulevar):
+                new_keys.append(rulevar)
+                break
+        for k in new_keys:
+            new_rules[k] = rules[k]
+        if not new_keys: break
+
+    return new_rules
+
+def get_return_value(frameenv):
+    my_rv = MultiValueDict()
+    return_value = frameenv['arg']
+    if return_value:
+        return_name = "%s:%s" % (frameenv['caller_name'], frameenv['func_name'])
+        if isinstance(return_value, dict):
+            for key, value in non_trivial(return_value).iteritems():
+                my_rv.setdefault("%s_%s" % (return_name, key), OrderedSet()).add(value)
+        elif isinstance(return_value, list):
+            for key, value in enumerate(non_trivial(return_value)):
+                my_rv.setdefault("%s_%s" % (return_name, key), OrderedSet()).add(value)
+        else:
+            ntrv = non_trivial(return_value)
+            if ntrv: my_rv.setdefault(return_name, OrderedSet()).add(ntrv)
+    return my_rv
+
 
 class Grammar(object):
+    """
+    Grammar inference
+    """
     def __init__(self):
         self.grules = MultiValueDict()
         self.my_initial_rules = MultiValueDict()
 
+        # initialized is not reset at self.reset()
+        # it is only once for a complete grammar.
+        self.initialized = False
+
     def reset(self):
+        """
+        Reset grammar inference for the next round
+        """
         self.my_initial_rules = MultiValueDict()
 
     def input_rules(self, fkey):
-        if self.my_initial_rules.get(fkey) == None:
+        """
+        Get the set of input rules from previously saved parameters
+        """
+        if self.my_initial_rules.get(fkey) is None:
             raise Exception("%s: input_rules event:call should have happened before this" % fkey)
         return self.my_initial_rules[fkey]
 
 
     def save_params(self, fkey, fname, frameenv):
-        params = self.decorate(fname, frameenv['parameters'])
+        """
+        Save the current state of parameters for input rules to a function
+        """
+        params = add_prefix(fname, frameenv['parameters'])
         # will not shadow because the format is cname.attr
-        params.update(self.non_trivial(frameenv['self']))
-
-        # for this function (blocks have same fnname)
-        #if self.my_initial_rules.get(fkey):
-        #    raise Exception("%s: this function should not have been saved before first call" % fkey) # Check and remove
+        params.update(non_trivial(frameenv['self']))
         rules = MultiValueDict()
         # add rest of parameters
-        for (k,v) in params.iteritems():
-            rules.setdefault(self.nt(k), OrderedSet()).add(v)
+        for (key, val) in params.iteritems():
+            rules.setdefault(nonterm(key), OrderedSet()).add(val)
         self.my_initial_rules[fkey] = rules
 
 
@@ -44,12 +163,7 @@ class Grammar(object):
         get_grammar gets called for each line of execution with a frame object
         that corresponds to the current environment.
         """
-        fname = frameenv['func_name']
-        fkey = '%s:%s' % (fname, frameenv['id'])
-        params = self.decorate(fname, frameenv['parameters'])
-        vself = frameenv['self']
-
-        self.start_rule(fkey, fname, params, vself)
+        self.start_rule(frameenv)
 
         # get the initial rules from parameters.
         # Here is a problem. We allow self.* as one of the inputs to a function.
@@ -57,6 +171,9 @@ class Grammar(object):
         # entire input which gets added as a disjunction to self.input.
         # Needed: We need to consider only those variables in self that was
         # touched during the function execution.
+
+        fname = frameenv['func_name']
+        fkey = '%s:%s' % (fname, frameenv['id'])
 
         # Save the parameters when the call is made because the parameters can
         # be overwritten subsequently.
@@ -72,152 +189,85 @@ class Grammar(object):
         if frameenv['event'] != 'return': return {}
         # remove the initial_rules for fkey : TODO
 
-        my_rules = self.input_rules(fkey)
-
         my_local_env = MultiValueDict()
         # TODO: for self, and other objects, it may be worthwhile to use
         # self.id() as a part of decoration, because the alternatives of
         # a particular object may be different from anothe object of the
         # same class.
-        my_local_env.merge_dict(self.non_trivial(frameenv['self']))
-        my_local_env.merge_dict(self.decorate(fname,frameenv['variables']))
+        my_local_env.merge_dict(non_trivial(frameenv['self']))
+        my_local_env.merge_dict(add_prefix(fname, frameenv['variables']))
 
         # Set the return value
-        return_value = frameenv['arg']
-        if  return_value != None:
-            return_name = "%s:%s" % (frameenv['caller_name'], frameenv['func_name'])
-            if isinstance(return_value, dict):
-                for key,value in self.non_trivial(return_value).iteritems():
-                    my_local_env.setdefault("%s_%s" % (return_name, key), OrderedSet()).add(value)
-            elif isinstance(return_value, list):
-                for key,value in enumerate(self.non_trivial(return_value)):
-                    my_local_env.setdefault("%s_%s" % (return_name, key), OrderedSet()).add(value)
-            else:
-                rv = self.non_trivial(return_value)
-                if rv != None:
-                    my_local_env.setdefault(return_name, OrderedSet()).add(rv)
+        my_rv = get_return_value(frameenv)
+        my_local_env.merge(my_rv)
+
 
         # for each environmental variable, look for a match of its value in the
         # input string or its alternatives in each rule.
         # if found, replace the matched portion with the variable name, and add a new rule
         # to the grammar rules name -> value
 
+        my_rules = self.input_rules(fkey)
         while True:
             new_rules = MultiValueDict()
             for (envvar, envval_djs) in my_local_env.iteritems():
-                for envval in self.longest_first(envval_djs): # envvals are disjunctions (esp for recursive funcs)
+                for envval in longest_first(envval_djs):
+                    # envvals are disjunctions (esp for recursive funcs)
                     present_in_input = False
                     for key, alternatives in my_rules.iteritems():
                         matched = [i for i in alternatives if envval in i]
-                        if len(matched) > 0: present_in_input = True
-                        for m in matched:
-                            alternatives.replace(m, m.replace(envval, self.nt(envvar)))
-                    if present_in_input: new_rules.setdefault(envvar,OrderedSet()).add(envval)
+                        if matched: present_in_input = True
+                        for rstr in matched:
+                            alternatives.replace(rstr, rstr.replace(envval, nonterm(envvar)))
+                    if present_in_input: new_rules.setdefault(envvar, OrderedSet()).add(envval)
 
             for key in new_rules.keys():
-                my_rules[self.nt(key)] = new_rules[key] # Add new rule to grammar
+                my_rules[nonterm(key)] = new_rules[key] # Add new rule to grammar
                 del my_local_env[key] # Do not expand this again
 
-            if len(new_rules) == 0: break # Nothing to expand anymore
+            if not new_rules: break # Nothing to expand anymore
 
-        return self.strip_unused_self(my_rules, params, vself)
+        return strip_unused_self(my_rules, frameenv['self'])
 
     def update(self, frameenv):
         """
-        the grules contains $START and all previous iterations.
+        The self.grules contains $START and all previous iterations.
         """
-        g = self.get_grammar(frameenv)
-        if len(g) > 0:
-            self.grules.merge(g)
+        rules = self.get_grammar(frameenv)
+        self.grules.merge(rules)
 
     def __str__(self):
-        my_rules = self.strip_unused_rules(self.grules)
-        return self.grammar_to_string(my_rules)
+        my_rules = strip_unused_rules(self.grules)
+        return grammar_to_string(my_rules)
 
-    def strip_unused_rules(self, rules):
-        # strip out rules (except start) that are not in the right side.
-        # this has intelligence to avoid keeping circular rules
-        if not cfg.strip_unused_rules: return rules
-        def has_key(rules, key):
-            for v in rules.values():
-                for d in v:
-                    if key in d: return True
-            return False
-
-        new_rules = MultiValueDict()
-        new_rules['$START'] = rules['$START']
-
-        while True:
-            new_keys = []
-            for rulevar in rules.keys():
-                if rulevar in new_rules.keys(): continue
-                if has_key(new_rules, rulevar):
-                    new_keys.append(rulevar)
-                    break
-            for k in new_keys:
-                new_rules[k] = rules[k]
-            if len(new_keys) == 0: break
-
-        return new_rules
-
-    def grammar_to_string(self, rules):
-        lst = ["%s ::= %s" % (key, "\n\t| ".join([i.replace('\n', '\\n') for i in rules[key]])) for key in rules.keys()]
-        return "\n".join(lst)
-
-    def nt(self, var): return "$%s" % var.upper()
-
-    def longest_first(self, myset): return sorted([l for l in list(myset)], key=len, reverse=True)
-
-    def non_trivial(self, d):
-        if isinstance(d, dict):
-            return {k:v for (k,v) in d.iteritems() if len(v) >= 2}
-        elif isinstance(d, list):
-            return [v for v in d if len(v) >= 2]
-        elif len(d) >= 0:
-            return d
-        return None
-
-    def start_rule(self, fkey, fname, params, vself):
-        global initialized
-        # The special-case for start symbol. This is for the entire grammar.
-        # We initialize $START with the first string parameter.
-        # self may also contain input values sometimes.
-        if not initialized:
-            paramstr = " ".join([self.nt(k) for (k,v) in params.items() + vself.items()])
-            #self.grules["$START:%s" % fname] = OrderedSet([paramstr])
+    def start_rule(self, frameenv):
+        """
+        The special-case for start symbol. This is for the entire grammar.
+        We initialize $START with the first string parameter.
+        self may also contain input values sometimes.
+        """
+        if not self.initialized:
+            fname = frameenv['func_name']
+            params = add_prefix(fname, frameenv['parameters'])
+            vself = frameenv['self']
+            paramstr = " ".join([nonterm(k) for (k, _) in params.items() + vself.items()])
             self.grules["$START"] = OrderedSet([paramstr])
-            initialized = True
+            self.initialized = True
 
-    def decorate(self, fname, d):
-        return {"%s:%s" % (fname, k):v for (k,v) in self.non_trivial(d).iteritems()}
-
-    def strip_unused_self(self, rules, params, vself):
-        if not cfg.strip_unused_self: return rules
-        # params and self should not be disjunctive here.
-        my_rules = rules.copy()
-        for k in vself.keys():
-            ntk = self.nt(k)
-            if rules.get(ntk):
-                v = rules[ntk]
-                found = False
-                for d in v:
-                   if '$' in d:
-                       found = True
-                       break
-                if not found: del my_rules[ntk]
-        return my_rules
-
-    def gc(self):
-        # for each nt, expand it to the full string, and replace values that it matches.
+    def ggc(self):
+        """
+        TODO: Remove rules that do not have a disjunction
+        """
         pass
 
 
 @contextmanager
 def grammar(hide=False):
+    """
+    The grammar context manager. Use `with induce.grammar() as g:`
+    """
     mygrammar = Grammar()
     yield mygrammar
-    mygrammar.gc()
-    if not hide:
-      print("_" * 80)
-      print(mygrammar)
-      print("_" * 80)
+    mygrammar.ggc()
+    lines = "_" * 80
+    if not hide: print("%s\n%s\n%s" % (lines, mygrammar, lines))
