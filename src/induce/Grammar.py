@@ -12,6 +12,8 @@ from induce.Ordered import MultiValueDict, OrderedSet
 # an entirely new variable. This needs to be handled by creating a new
 # variable each time a variable is assigned to.
 
+# TODO: use mypy
+
 def non_trivial(myvar):
     """
     Removes small and temporary variables -- those that
