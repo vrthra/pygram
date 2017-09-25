@@ -7,7 +7,9 @@ import json
 import linecache
 import ast
 
-# pylint: disable=C0321,R0903
+from typing import *
+
+# pylint: disable=C0321,R0903,fixme
 
 # TODO: At least simple data flow (just parsing simple assignments)
 # would be useful to restrict the induced grammar.
@@ -34,12 +36,12 @@ def scrub(obj, counter=10): # 640kb aught to be enough for anybody
         return obj
     return None
 
-def expand(key, value):
+def expand(key: str, value: str):
     """
     Expand one level.
     """
     if isinstance(value, (dict, list)):
-        return [("%s_%s" % (key, k), v) for k, v in list(flatten(value).items())]
+        return [("%s_%s" % (key, k), v) for k, v in flatten(value).items()]
     return [(key, value)]
 
 def flatten(val):
@@ -53,7 +55,7 @@ def flatten(val):
         return dict([item for k, v in enumerate(val) for item in expand(k, v)])
     return val
 
-def process_frame(frame, loc, event, arg):
+def process_frame(frame: Any, loc: Dict[(str, str)], event: str, arg: str):
     """
     For the current frame (distinguished by id), save the parameter values,
     and save all the values that each variable takes. Process globals and
@@ -67,7 +69,7 @@ def process_frame(frame, loc, event, arg):
     vself = frame.f_locals.get('self')
     if isinstance(vself, Tracer): return
 
-    frame_env = collections.OrderedDict()
+    frame_env = collections.OrderedDict() # type: collections.OrderedDict
 
     frame_env['id'] = frame.__hash__()
     frame_env['func_name'] = loc['name']
@@ -102,17 +104,17 @@ def process_frame(frame, loc, event, arg):
     print(json.dumps(frame_env), file=sys.stderr)
 
 
-def tracer():
+def tracer() -> Any:
     """
     Generates the trace function that gets hooked in.
     """
-    def loc(caller):
+    def loc(caller: Any) -> Tuple[str, str, int]:
         """
         Returns location information of the caller
         """
         return (caller.f_code.co_name, caller.f_code.co_filename, caller.f_lineno)
 
-    def traceit(frame, event, arg):
+    def traceit(frame: Any, event: str, arg: Optional[str]) -> Any:
         """
         The actual trace function
         """
@@ -131,22 +133,22 @@ def tracer():
         except SyntaxError: pass
 
         process_frame(frame,
-                      {'name':mname, 'file':mfile, 'line':mline,
-                       'cname': cname, 'cfile': cfile, 'cline': cline,
+                      {'name':mname, 'file':mfile, 'line': str(mline),
+                       'cname': cname, 'cfile': cfile, 'cline': str(cline),
                        'code': code, 'kind': kind}, event, arg)
         return traceit
     return traceit
 
-class Tracer(object):
+class Tracer:
     """ The context manager that manages trace hooking and unhooking. """
-    def __init__(self):
+    def __init__(self) -> None:
         self.method = tracer()
 
-    def __enter__(self):
+    def __enter__(self) -> None:
         """ set hook """
         sys.settrace(self.method)
 
-    def __exit__(self, typ, value, traceback):
+    def __exit__(self, typ: str, value: str, traceback: Any):
         """ unhook """
         sys.settrace(None)
         # print an empty record to indicate one full invocation.

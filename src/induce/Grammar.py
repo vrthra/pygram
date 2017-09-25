@@ -6,7 +6,9 @@ import itertools
 import config as cfg
 from induce.Ordered import MultiValueDict, OrderedSet
 
-# pylint: disable=C0321
+from typing import *
+
+# pylint: disable=C0321,fixme
 
 # TODO:
 # In some cases, like urlparse:url, one of the parameter names are reused as
@@ -15,26 +17,26 @@ from induce.Ordered import MultiValueDict, OrderedSet
 
 # TODO: use mypy
 
-def non_trivial(myvar):
+def non_trivial_val(val: str) -> bool:
+    """ Is the variable temporary? """
+    return len(val) >= 2
+
+
+def non_trivial_envdict(myvar: Dict[(str, str)]) -> Dict[(str, str)]:
     """
     Removes small and temporary variables -- those that
     have name length under a certain value or those that
     only contain a string under a certain length as a value.
     """
-    if isinstance(myvar, dict):
-        return {k:v for (k, v) in myvar.items() if len(v) >= 2}
-    elif isinstance(myvar, list):
-        return [v for v in myvar if len(v) >= 2]
-    elif len(myvar) >= 0:
-        return myvar
-    return None
+    return {k:v for k, v in myvar.items() if non_trivial_val(v)}
 
-def add_prefix(fname, mydict):
+def add_prefix(fname: str, mydict: Dict[(str, str)]):
     """
     Adds a prefix (the current function name is accepted as the parameter)
     to the variable name for a dict
     """
-    return {"%s:%s" % (fname, k):v for (k, v) in non_trivial(mydict).items()}
+    return {"%s:%s" % (fname, k):v for k, v in mydict.items()
+            if non_trivial_val(v)}
 
 def grammar_to_string(rules):
     """
@@ -45,11 +47,11 @@ def grammar_to_string(rules):
            for key in rules.keys()]
     return "\n".join(lst)
 
-def nonterm(var):
+def nonterm(var: str):
     """Produce a Non Terminal symbol"""
     return "$%s" % var.upper()
 
-def longest_first(myset):
+def longest_first(myset: set):
     """For a set return a sorted list with longest element first"""
     return sorted([l for l in myset], key=len, reverse=True)
 
@@ -103,7 +105,7 @@ def strip_unused_rules(rules):
 
     return new_rules
 
-def get_return_value(frameenv):
+def get_return_value(frameenv: Dict[(str, Any)]):
     """
     Flatten and set the return value as caller:callee rules
     """
@@ -112,22 +114,26 @@ def get_return_value(frameenv):
     if return_value:
         return_name = "%s:%s" % (frameenv['caller_name'], frameenv['func_name'])
         if isinstance(return_value, dict):
-            for key, value in non_trivial(return_value).items():
-                my_rv.setdefault("%s_%s" % (return_name, key), OrderedSet()).add(value)
+            lst = [(key, val) for key, val in return_value.items()
+                   if non_trivial_val(val)]
+            for key, val in lst:
+                my_rv.setdefault("%s_%s" % (return_name, key), OrderedSet()).add(val)
         elif isinstance(return_value, list):
-            for key, value in enumerate(non_trivial(return_value)):
-                my_rv.setdefault("%s_%s" % (return_name, key), OrderedSet()).add(value)
+            lst = [(key, val) for key, val in enumerate(return_value)
+                   if non_trivial_val(val)]
+            for key, val in lst:
+                my_rv.setdefault("%s_%s" % (return_name, key), OrderedSet()).add(val)
         else:
-            ntrv = non_trivial(return_value)
-            if ntrv: my_rv.setdefault(return_name, OrderedSet()).add(ntrv)
+            if non_trivial_val(return_value):
+                my_rv.setdefault(return_name, OrderedSet()).add(return_value)
     return my_rv
 
 
-class Grammar(object):
+class Grammar:
     """
     Grammar inference
     """
-    def __init__(self):
+    def __init__(self) -> None:
         self.grules = MultiValueDict()
         self.my_initial_rules = MultiValueDict()
 
@@ -135,13 +141,13 @@ class Grammar(object):
         # it is only once for a complete grammar.
         self.initialized = False
 
-    def reset(self):
+    def reset(self) -> None:
         """
         Reset grammar inference for the next round
         """
         self.my_initial_rules = MultiValueDict()
 
-    def input_rules(self, fkey):
+    def input_rules(self, fkey: str):
         """
         Get the set of input rules from previously saved parameters
         """
@@ -150,20 +156,20 @@ class Grammar(object):
         return self.my_initial_rules[fkey]
 
 
-    def save_params(self, fkey, fname, frameenv):
+    def save_params(self, fkey: str, fname: str, frameenv: Dict[str, Any]) -> None:
         """
         Save the current state of parameters for input rules to a function
         """
         params = add_prefix(fname, frameenv['parameters'])
         # will not shadow because the format is cname.attr
-        params.update(non_trivial(frameenv['self']))
+        params.update(non_trivial_envdict(frameenv['self']))
         rules = MultiValueDict()
         # add rest of parameters
         for (key, val) in params.items():
             rules.setdefault(nonterm(key), OrderedSet()).add(val)
         self.my_initial_rules[fkey] = rules
 
-    def find_inclusions(self, fkey, my_local_env):
+    def find_inclusions(self, fkey: str, my_local_env: MultiValueDict) -> MultiValueDict:
         """
         For each environmental variable, look for a match of its value in the
         input string or its alternatives in each rule.
@@ -193,7 +199,7 @@ class Grammar(object):
         return my_rules
 
 
-    def get_grammar(self, frameenv):
+    def get_grammar(self, frameenv: Dict[str, Any]) -> MultiValueDict:
         """
         get_grammar gets called for each line of execution with a frame object
         that corresponds to the current environment.
@@ -221,7 +227,7 @@ class Grammar(object):
             # now, but this should be converted to a disjunction.
             pass
 
-        if frameenv['event'] != 'return': return {}
+        if frameenv['event'] != 'return': return MultiValueDict()
         # remove the initial_rules for fkey : TODO
 
         my_local_env = MultiValueDict()
@@ -229,7 +235,7 @@ class Grammar(object):
         # self.id() as a part of decoration, because the alternatives of
         # a particular object may be different from anothe object of the
         # same class.
-        my_local_env.merge_dict(non_trivial(frameenv['self']))
+        my_local_env.merge_dict(non_trivial_envdict(frameenv['self']))
         my_local_env.merge_dict(add_prefix(fname, frameenv['variables']))
 
         # Set the return value
@@ -239,7 +245,7 @@ class Grammar(object):
         my_rules = self.find_inclusions(fkey, my_local_env)
         return strip_unused_self(my_rules, frameenv['self'])
 
-    def update(self, frameenv):
+    def update(self, frameenv: Dict[str, Any]) -> None:
         """
         The self.grules contains $START and all previous iterations.
         """
@@ -250,7 +256,7 @@ class Grammar(object):
         my_rules = strip_unused_rules(self.grules)
         return grammar_to_string(my_rules)
 
-    def start_rule(self, frameenv):
+    def start_rule(self, frameenv: Dict[str, Any]) -> None:
         """
         The special-case for start symbol. This is for the entire grammar.
         We initialize $START with the first string parameter.
@@ -265,7 +271,7 @@ class Grammar(object):
             self.grules["$START"] = OrderedSet([paramstr])
             self.initialized = True
 
-    def ggc(self):
+    def ggc(self) -> None:
         """
         TODO: Remove rules that do not have a disjunction
         """
