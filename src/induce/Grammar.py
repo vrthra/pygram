@@ -58,7 +58,7 @@ def longest_first(myset: set):
 
 # TODO: we really do not need to special case self
 # Turn this into just normal objects.
-def strip_unused_self(rules, vself):
+def strip_unused_self(rules: MultiValueDict, vself: Dict[str, Any]):
     """
     Removes references to unused members of self.
     """
@@ -77,7 +77,7 @@ def strip_unused_self(rules, vself):
             if not found: del my_rules[ntk]
     return my_rules
 
-def strip_unused_rules(rules):
+def strip_unused_rules(rules: MultiValueDict):
     """
     Strip out rules (except start) that are not in the right side.
     this has intelligence to avoid keeping circular rules
