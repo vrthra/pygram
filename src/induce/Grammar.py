@@ -1,12 +1,13 @@
 """
 Grammar inference module
 """
+from typing import Dict, Any
+
 from contextlib import contextmanager
 import itertools
 import config as cfg
 from induce.Ordered import MultiValueDict, OrderedSet
 
-from typing import *
 
 # pylint: disable=C0321,fixme
 
@@ -93,12 +94,8 @@ def strip_unused_rules(rules):
     new_rules['$START'] = rules['$START']
 
     while True:
-        new_keys = []
-        for rulevar in rules.keys():
-            if rulevar in new_rules.keys(): continue
-            if has_key(new_rules, rulevar):
-                new_keys.append(rulevar)
-                break
+        new_keys = [rulevar for rulevar in rules.keys()
+                    if rulevar not in new_rules.keys() and has_key(new_rules, rulevar)]
         for k in new_keys:
             new_rules[k] = rules[k]
         if not new_keys: break

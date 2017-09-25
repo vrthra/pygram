@@ -1,13 +1,13 @@
 """
 The tracer module
 """
+from typing import Dict, Tuple, Any, Optional
+
 import sys
 import collections
 import json
 import linecache
 import ast
-
-from typing import *
 
 # pylint: disable=C0321,R0903,fixme
 
