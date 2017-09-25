@@ -2,6 +2,7 @@
 Grammar inference module
 """
 from contextlib import contextmanager
+import itertools
 import config as cfg
 from induce.Ordered import MultiValueDict, OrderedSet
 
@@ -41,7 +42,7 @@ def grammar_to_string(rules):
     """
     lst = ["%s ::= %s" % (key, "\n\t| ".join([i.replace('\n', '\\n')
                                               for i in rules[key]]))
-           for key in list(rules.keys())]
+           for key in rules.keys()]
     return "\n".join(lst)
 
 def nonterm(var):
@@ -50,7 +51,7 @@ def nonterm(var):
 
 def longest_first(myset):
     """For a set return a sorted list with longest element first"""
-    return sorted([l for l in list(myset)], key=len, reverse=True)
+    return sorted([l for l in myset], key=len, reverse=True)
 
 # TODO: we really do not need to special case self
 # Turn this into just normal objects.
@@ -61,7 +62,7 @@ def strip_unused_self(rules, vself):
     if not cfg.strip_unused_self: return rules
     # params and self should not be disjunctive here.
     my_rules = rules.copy()
-    for k in list(vself.keys()):
+    for k in vself.keys():
         ntk = nonterm(k)
         if rules.get(ntk):
             prods = rules[ntk]
@@ -81,7 +82,7 @@ def strip_unused_rules(rules):
     if not cfg.strip_unused_rules: return rules
     def has_key(rules, key):
         """Check if a key is present in RHS of given set or rules"""
-        for dvals in list(rules.values()):
+        for dvals in rules.values():
             for prodstr in dvals:
                 if key in prodstr: return True
         return False
@@ -91,8 +92,8 @@ def strip_unused_rules(rules):
 
     while True:
         new_keys = []
-        for rulevar in list(rules.keys()):
-            if rulevar in list(new_rules.keys()): continue
+        for rulevar in rules.keys():
+            if rulevar in new_rules.keys(): continue
             if has_key(new_rules, rulevar):
                 new_keys.append(rulevar)
                 break
@@ -103,6 +104,9 @@ def strip_unused_rules(rules):
     return new_rules
 
 def get_return_value(frameenv):
+    """
+    Flatten and set the return value as caller:callee rules
+    """
     my_rv = MultiValueDict()
     return_value = frameenv['arg']
     if return_value:
@@ -159,6 +163,35 @@ class Grammar(object):
             rules.setdefault(nonterm(key), OrderedSet()).add(val)
         self.my_initial_rules[fkey] = rules
 
+    def find_inclusions(self, fkey, my_local_env):
+        """
+        For each environmental variable, look for a match of its value in the
+        input string or its alternatives in each rule.
+        if found, replace the matched portion with the variable name, and add a new rule
+        to the grammar rules name -> value
+        """
+
+        my_rules = self.input_rules(fkey)
+        while True:
+            new_rules = MultiValueDict()
+            for (envvar, envval_djs) in my_local_env.items():
+                for envval in longest_first(envval_djs):
+                    # envvals are disjunctions (esp for recursive funcs)
+                    present_in_input = False
+                    for key, alternatives in my_rules.items():
+                        matched = [i for i in alternatives if envval in i]
+                        if matched: present_in_input = True
+                        for rstr in matched:
+                            alternatives.replace(rstr, rstr.replace(envval, nonterm(envvar)))
+                    if present_in_input: new_rules.setdefault(envvar, OrderedSet()).add(envval)
+
+            for key in new_rules.keys():
+                my_rules[nonterm(key)] = new_rules[key] # Add new rule to grammar
+                del my_local_env[key] # Do not expand this again
+
+            if not new_rules: break # Nothing to expand anymore
+        return my_rules
+
 
     def get_grammar(self, frameenv):
         """
@@ -203,32 +236,7 @@ class Grammar(object):
         my_rv = get_return_value(frameenv)
         my_local_env.merge(my_rv)
 
-
-        # for each environmental variable, look for a match of its value in the
-        # input string or its alternatives in each rule.
-        # if found, replace the matched portion with the variable name, and add a new rule
-        # to the grammar rules name -> value
-
-        my_rules = self.input_rules(fkey)
-        while True:
-            new_rules = MultiValueDict()
-            for (envvar, envval_djs) in my_local_env.items():
-                for envval in longest_first(envval_djs):
-                    # envvals are disjunctions (esp for recursive funcs)
-                    present_in_input = False
-                    for key, alternatives in my_rules.items():
-                        matched = [i for i in alternatives if envval in i]
-                        if matched: present_in_input = True
-                        for rstr in matched:
-                            alternatives.replace(rstr, rstr.replace(envval, nonterm(envvar)))
-                    if present_in_input: new_rules.setdefault(envvar, OrderedSet()).add(envval)
-
-            for key in list(new_rules.keys()):
-                my_rules[nonterm(key)] = new_rules[key] # Add new rule to grammar
-                del my_local_env[key] # Do not expand this again
-
-            if not new_rules: break # Nothing to expand anymore
-
+        my_rules = self.find_inclusions(fkey, my_local_env)
         return strip_unused_self(my_rules, frameenv['self'])
 
     def update(self, frameenv):
@@ -252,7 +260,8 @@ class Grammar(object):
             fname = frameenv['func_name']
             params = add_prefix(fname, frameenv['parameters'])
             vself = frameenv['self']
-            paramstr = " ".join([nonterm(k) for (k, _) in list(params.items()) + list(vself.items())])
+            lstvars = itertools.chain(params.items(), vself.items())
+            paramstr = " ".join([nonterm(k) for (k, _) in lstvars])
             self.grules["$START"] = OrderedSet([paramstr])
             self.initialized = True
 
