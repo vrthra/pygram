@@ -155,16 +155,18 @@ def urlsplit_orig(url, scheme='', allow_fragments=1):
     return tuple
 
 
-def urlunparse((scheme, netloc, url, params, query, fragment)):
+def urlunparse(tup):
     """Put a parsed URL back together again.  This may result in a
     slightly different, but equivalent URL, if the URL that was parsed
     originally had redundant delimiters, e.g. a ? with an empty query
     (the draft states that these are equivalent)."""
+    (scheme, netloc, url, params, query, fragment) = tup
     if params:
         url = "%s;%s" % (url, params)
     return urlunsplit((scheme, netloc, url, query, fragment))
 
-def urlunsplit((scheme, netloc, url, query, fragment)):
+def urlunsplit(tup):
+    (scheme, netloc, url, query, fragment) = tup
     if netloc or (scheme and scheme in uses_netloc and url[:2] != '//'):
         if url and url[:1] != '/': url = '/' + url
         url = '//' + (netloc or '') + url
