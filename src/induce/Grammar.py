@@ -226,7 +226,6 @@ class Grammar:
             pass
 
         if frameenv['event'] != 'return': return MultiValueDict()
-        # remove the initial_rules for fkey : TODO
 
         my_local_env = MultiValueDict()
         # TODO: for self, and other objects, it may be worthwhile to use
@@ -270,7 +269,7 @@ class Grammar:
             self.grules["$START"] = OrderedSet([paramstr])
             self.initialized = True
 
-    def ggc(self) -> None:
+    def humanize(self) -> None:
         """
         TODO: Remove rules that do not have a disjunction
         """
@@ -284,6 +283,6 @@ def grammar(hide=False):
     """
     mygrammar = Grammar()
     yield mygrammar
-    mygrammar.ggc()
+    mygrammar.humanize()
     lines = "_" * 80
     if not hide: print(("%s\n%s\n%s" % (lines, mygrammar, lines)))
