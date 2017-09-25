@@ -41,6 +41,9 @@ t_apachelogparser: $(CONFIG)
 	cat $@.tmp
 	mv $@.tmp $@
 
+%.jsx:
+	$(env) $(python3) tests/$*.py data/$*.dat
+
 %.grammar:
 	$(env) $(python3) tests/$*.py 3>&2 2>&1 1>&3 | $(env) $(python3) ./src/onlinemerge.py
 

@@ -145,7 +145,13 @@ class Grammar:
         return self.my_initial_rules[fkey]
 
 
-    def save_params(self, fkey: str, fname: str, frameenv: Dict[str, Any]) -> None:
+    def pop_params(self, fkey: str) -> None:
+        """
+        Remove the current set of parameters
+        """
+        del self.my_initial_rules[fkey]
+
+    def push_params(self, fkey: str, fname: str, frameenv: Dict[str, Any]) -> None:
         """
         Save the current state of parameters for input rules to a function
         """
@@ -213,7 +219,7 @@ class Grammar:
         # Save the parameters when the call is made because the parameters can
         # be overwritten subsequently.
         if frameenv['event'] == 'call':
-            self.save_params(fkey, fname, frameenv)
+            self.push_params(fkey, fname, frameenv)
 
         if frameenv['event'] == 'line':
             # TODO: Within a particular block execution the same variable
@@ -237,6 +243,7 @@ class Grammar:
         my_local_env.merge(my_rv)
 
         my_rules = self.find_inclusions(fkey, my_local_env)
+        self.pop_params(fkey)
         return strip_unused_self(my_rules, frameenv['self'])
 
     def update(self, frameenv: Dict[str, Any]) -> None:
