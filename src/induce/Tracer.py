@@ -7,7 +7,7 @@ import json
 import linecache
 import ast
 
-# pylint: disable=C0321
+# pylint: disable=C0321,R0903
 
 # TODO: At least simple data flow (just parsing simple assignments)
 # would be useful to restrict the induced grammar.
@@ -96,7 +96,7 @@ def process_frame(frame, loc, event, arg):
              flatten(scrub(vself.__dict__)).items()})
     frame_env['event'] = event
     frame_env['arg'] = flatten(scrub(arg))
-    frame_env['line'] = loc['line']
+    frame_env['code'] = loc['code']
     frame_env['kind'] = loc['kind']
 
     print(json.dumps(frame_env), file=sys.stderr)
@@ -118,11 +118,11 @@ def tracer():
         """
         (mname, mfile, mline) = loc(frame)
         (cname, cfile, cline) = loc(frame.f_back)
-        line = linecache.getline(mfile, mline)
+        code = linecache.getline(mfile, mline)
 
         kind = 'unknown'
         try:
-            mymod = ast.parse(line.strip())
+            mymod = ast.parse(code.strip())
             if isinstance(mymod, ast.Module):
                 # assert len(mymod.body) == 1
                 child = mymod.body[0]
@@ -133,7 +133,7 @@ def tracer():
         process_frame(frame,
                       {'name':mname, 'file':mfile, 'line':mline,
                        'cname': cname, 'cfile': cfile, 'cline': cline,
-                       'line': line, 'kind': kind}, event, arg)
+                       'code': code, 'kind': kind}, event, arg)
         return traceit
     return traceit
 
