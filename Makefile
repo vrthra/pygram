@@ -44,9 +44,8 @@ t_apachelogparser: $(CONFIG)
 %.grammar:
 	$(env) $(python3) tests/$*.py 3>&2 2>&1 1>&3 | $(env) $(python3) ./src/onlinemerge.py
 
-%.json:
-	$(env) $(python3) tests/$*.py data/$*.dat 3>&2 2>&1 1>&3 | \
-		$(jq) '. | [ .func_name, .event, .id | tostring] | join(" ") '
+%.json: %.js
+		cat $*.js | $(jq) '. | [ .func_name, .event, .id | tostring] | join(" ") '
 
 
 lint: typecheck
