@@ -1,7 +1,7 @@
 """
 The tracer module
 """
-from typing import Dict, Tuple, Any, Optional
+from typing import Dict, Tuple, Any, Optional, List
 
 import sys
 import collections
@@ -20,7 +20,7 @@ import ast
 # However, if there is a shadowing local variable, we should ignore
 # the global.
 
-def scrub(obj, counter=10): # 640kb aught to be enough for anybody
+def scrub(obj: Any, counter: int = 10) -> Optional[Any]: # 640kb aught to be enough for anybody
     """
     Remove everything except strings.
     """
@@ -36,7 +36,7 @@ def scrub(obj, counter=10): # 640kb aught to be enough for anybody
         return obj
     return None
 
-def expand(key: str, value: str):
+def expand(key: str, value: str) -> List[Tuple[str, str]]:
     """
     Expand one level.
     """
@@ -44,7 +44,7 @@ def expand(key: str, value: str):
         return [("%s_%s" % (key, k), v) for k, v in flatten(value).items()]
     return [(key, value)]
 
-def flatten(val):
+def flatten(val: Any) -> Any:
     """
     Make a nested data structure (only lists and dicts) into a flattened
     dict.
@@ -52,7 +52,7 @@ def flatten(val):
     if   isinstance(val, dict):
         return dict([item for k, v in list(val.items()) for item in expand(k, v)])
     elif isinstance(val, list):
-        return dict([item for k, v in enumerate(val) for item in expand(k, v)])
+        return dict([item for k, v in enumerate(val) for item in expand(str(k), v)])
     return val
 
 def process_frame(frame: Any, loc: Dict[(str, str)], event: str, arg: str):
@@ -127,9 +127,9 @@ def tracer() -> Any:
             mymod = ast.parse(code.strip())
             if isinstance(mymod, ast.Module):
                 # assert len(mymod.body) == 1
-                child = mymod.body[0]
-                if isinstance(child, (ast.Assign, ast.AugAssign)):
-                    kind = ast.dump(child)
+                # child = mymod.body[0]
+                # if isinstance(child, (ast.Assign, ast.AugAssign)):
+                kind = " ".join([ast.dump(child) for child in mymod.body])
         except SyntaxError: pass
 
         process_frame(frame,
