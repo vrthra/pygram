@@ -4,6 +4,7 @@ python2=python2
 python3=python3
 env=PYTHONPATH=.:./src:./libs:./tests PATH=$(PATH):~/.local/bin
 lint=~/.local/bin/pylint
+jq=jq
 
 .PRECIOUS: %.js %.g
 
@@ -41,10 +42,14 @@ t_apachelogparser: $(CONFIG)
 	mv $@.tmp $@
 
 %.grammar:
-	$(env) $(python3) tests/$*.py 3>&2 2>&1 1>&3 | $(env) $(python2) ./src/onlinemerge.py
+	$(env) $(python3) tests/$*.py 3>&2 2>&1 1>&3 | $(env) $(python3) ./src/onlinemerge.py
+
+%.json:
+	$(env) $(python3) tests/$*.py data/$*.dat 3>&2 2>&1 1>&3 | \
+		$(jq) '. | [ .func_name, .event, .id | tostring] | join(" ") '
 
 
-lint:
+lint: typecheck
 	 $(python3) -m pylint src/induce/
 
 

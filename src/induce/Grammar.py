@@ -108,21 +108,13 @@ def get_return_value(frameenv: Dict[(str, Any)]):
     """
     my_rv = MultiValueDict()
     return_value = frameenv['arg']
+    # return_value will be a flattened dict
     if return_value:
-        return_name = "%s:%s" % (frameenv['caller_name'], frameenv['func_name'])
-        if isinstance(return_value, dict):
-            lst = [(key, val) for key, val in return_value.items()
-                   if non_trivial_val(val)]
-            for key, val in lst:
-                my_rv.setdefault("%s_%s" % (return_name, key), OrderedSet()).add(val)
-        elif isinstance(return_value, list):
-            lst = [(key, val) for key, val in enumerate(return_value)
-                   if non_trivial_val(val)]
-            for key, val in lst:
-                my_rv.setdefault("%s_%s" % (return_name, key), OrderedSet()).add(val)
-        else:
-            if non_trivial_val(return_value):
-                my_rv.setdefault(return_name, OrderedSet()).add(return_value)
+        r_name = "%s:%s" % (frameenv['caller_name'], frameenv['func_name'])
+        lst = [(key, val) for key, val in return_value.items()
+               if non_trivial_val(val)]
+        for key, val in lst:
+            my_rv.setdefault("%s_%s" % (r_name, key), OrderedSet()).add(val)
     return my_rv
 
 

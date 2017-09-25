@@ -1,7 +1,7 @@
 """
 The tracer module
 """
-from typing import Dict, Tuple, Any, Optional, List
+from typing import Dict, Tuple, Any, Optional, List, Union
 
 import sys
 import collections
@@ -20,40 +20,41 @@ import ast
 # However, if there is a shadowing local variable, we should ignore
 # the global.
 
-def scrub(obj: Any, counter: int = 10) -> Optional[Any]: # 640kb aught to be enough for anybody
+def scrub(obj: List[Tuple[str, Any]]) -> List[Tuple[str, str]]:
     """
-    Remove everything except strings.
+    Remove everything except strings from a flattened datastructure.
     """
-    if counter < 0: return None
+    return [(k, v) for k, v in obj if isinstance(v, str)]
 
-    if isinstance(obj, dict):
-        lst = [(k, scrub(v, counter-1)) for (k, v) in obj.items()]
-        return {k:v for k, v in lst if v != None}
-    elif isinstance(obj, list):
-        lst = [scrub(k, counter-1) for k in obj]
-        return [k for k in lst if k != None]
-    elif isinstance(obj, str):
-        return obj
-    return None
-
-def expand(key: str, value: str) -> List[Tuple[str, str]]:
+def expand(key: str, value: str, level: int) -> List[Tuple[str, str]]:
     """
     Expand one level.
     """
     if isinstance(value, (dict, list)):
-        return [("%s_%s" % (key, k), v) for k, v in flatten(value).items()]
+        return [("%s_%s" % (key, k), v) for k, v in flatten(value, level-1)]
     return [(key, value)]
 
-def flatten(val: Any) -> Any:
+def flatten(val: Union[Dict[(str, Any)], List[Any]], level: int = 10) -> List[Any]:
     """
     Make a nested data structure (only lists and dicts) into a flattened
     dict.
     """
-    if   isinstance(val, dict):
-        return dict([item for k, v in list(val.items()) for item in expand(k, v)])
-    elif isinstance(val, list):
-        return dict([item for k, v in enumerate(val) for item in expand(str(k), v)])
+    if isinstance(val, dict): return flatten_dict(val, level)
+    elif isinstance(val, list): return flatten_list(val, level)
     return val
+
+def flatten_dict(val: Dict[(str, Any)], level) -> List[Any]:
+    """
+    Make a nested dict into a flattened list.
+    """
+    return [item for k, v in val.items()
+            for item in expand(k, v, level)]
+
+def flatten_list(val: List[Any], level) -> List[Any]:
+    """
+    Make a nested list into a flattened list.
+    """
+    return [i for k, v in enumerate(val) for i in expand(str(k), v, level)]
 
 def process_frame(frame: Any, loc: Dict[(str, str)], event: str, arg: str):
     """
@@ -83,8 +84,8 @@ def process_frame(frame: Any, loc: Dict[(str, str)], event: str, arg: str):
         my_parameters[name] = my_locals[name]
         del my_locals[name]
 
-    frame_env['variables'] = flatten(scrub(my_locals))
-    frame_env['parameters'] = flatten(scrub(my_parameters))
+    frame_env['variables'] = dict(scrub(flatten(my_locals)))
+    frame_env['parameters'] = dict(scrub(flatten(my_parameters)))
 
     # TODO: At some point, we should remove special casing
     # self. It is just another object found as the first parameter
@@ -93,11 +94,10 @@ def process_frame(frame: Any, loc: Dict[(str, str)], event: str, arg: str):
     frame_env['self'] = {}
     if hasattr(vself, '__dict__') and isinstance(vself.__dict__, dict):
         clazz = vself.__class__.__name__
-        frame_env['self'].update(
-            {'%s.%s' % (clazz, k):v for (k, v) in
-             flatten(scrub(vself.__dict__)).items()})
+        frame_env['self'].update({'%s.%s' % (clazz, k):v for (k, v) in
+                                  scrub(flatten(vself.__dict__))})
     frame_env['event'] = event
-    frame_env['arg'] = flatten(scrub(arg))
+    frame_env['arg'] = dict(scrub(flatten({'@': arg})))
     frame_env['code'] = loc['code']
     frame_env['kind'] = loc['kind']
 
