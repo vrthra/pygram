@@ -170,8 +170,13 @@ class Grammar:
         while True:
             new_rules = MultiValueDict()
             for (envvar, envval_djs) in my_local_env.items():
+                # for now, envval_djs will only hold one value.
+                # that is until we start processing line events.
+                # If we do line events, a single environment variable
+                # may go through multiple assignements and hence changes
+                # in its value.
+                if len(envval_djs) > 1: raise Exception("Unexpected: %s " % envval_djs)
                 for envval in longest_first(envval_djs):
-                    # envvals are disjunctions (esp for recursive funcs)
                     present_in_input = False
                     for key, alternatives in my_rules.items():
                         matched = [i for i in alternatives if envval in i]
