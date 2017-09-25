@@ -16,8 +16,6 @@ from induce.Ordered import MultiValueDict, OrderedSet
 # an entirely new variable. This needs to be handled by creating a new
 # variable each time a variable is assigned to.
 
-# TODO: use mypy
-
 def non_trivial_val(val: str) -> bool:
     """ Is the variable temporary? """
     return len(val) >= 2
