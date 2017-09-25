@@ -1,6 +1,8 @@
 import collections
 # https://github.com/LuminosoInsight/ordered-set
 # copying here in the interest of not piping it.
+# pylint: skip-file
+
 """
 An OrderedSet is a custom MutableSet that remembers its order, so that every
 entry has an index that can be looked up.
