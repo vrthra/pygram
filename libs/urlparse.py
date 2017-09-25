@@ -119,16 +119,18 @@ def urlsplit(url, scheme='', allow_fragments=1):
     _parse_cache[key] = tuple
     return tuple
 
-def urlunparse((scheme, netloc, url, params, query, fragment)):
+def urlunparse(tup):
     """Put a parsed URL back together again.  This may result in a
     slightly different, but equivalent URL, if the URL that was parsed
     originally had redundant delimiters, e.g. a ? with an empty query
     (the draft states that these are equivalent)."""
+    scheme, netloc, url, params, query, fragment = tup
     if params:
         url = "%s;%s" % (url, params)
     return urlunsplit((scheme, netloc, url, query, fragment))
 
-def urlunsplit((scheme, netloc, url, query, fragment)):
+def urlunsplit(tup):
+    scheme, netloc, url, query, fragment = tup
     if netloc or (scheme and scheme in uses_netloc and url[:2] != '//'):
         if url and url[:1] != '/': url = '/' + url
         url = '//' + (netloc or '') + url
@@ -252,8 +254,8 @@ def test():
         else:
             fp = open(fn)
     else:
-        import StringIO
-        fp = StringIO.StringIO(test_input)
+        import io
+        fp = io.StringIO(test_input)
     while 1:
         line = fp.readline()
         if not line: break
@@ -262,15 +264,15 @@ def test():
             continue
         url = words[0]
         parts = urlparse(url)
-        print '%-10s : %s' % (url, parts)
+        print('%-10s : %s' % (url, parts))
         abs = urljoin(base, url)
         if not base:
             base = abs
         wrapped = '<URL:%s>' % abs
-        print '%-10s = %s' % (url, wrapped)
+        print('%-10s = %s' % (url, wrapped))
         if len(words) == 3 and words[1] == '=':
             if wrapped != words[2]:
-                print 'EXPECTED', words[2], '!!!!!!!!!!'
+                print('EXPECTED', words[2], '!!!!!!!!!!')
 
 if __name__ == '__main__':
     test()
