@@ -2,7 +2,7 @@
 # Author: Erez Shinan, Dec 2012
 
 import re, collections
-from operator import add,sub,mul,div
+from operator import add,sub,mul,truediv
 
 Token = collections.namedtuple('Token', ['name', 'value'])
 RuleMatch = collections.namedtuple('RuleMatch', ['name', 'matched'])
@@ -16,7 +16,7 @@ rule_map = {
 }
 fix_assoc_rules = 'add', 'mul'
 
-bin_calc_map = {'*':mul, '/':div, '+':add, '-':sub}
+bin_calc_map = {'*':mul, '/':truediv, '+':add, '-':sub}
 def calc_binary(x):
     while len(x) > 1:
         x[:3] = [ bin_calc_map[x[1]](x[0], x[2]) ]
@@ -25,7 +25,7 @@ def calc_binary(x):
 calc_map = {
     'NUM' : float,
     'atom': lambda x: x[len(x)!=1],
-    'neg' : lambda (op,num): (num,-num)[op=='-'],
+    'neg' : lambda op_num: (op_num[1],-op_num[1])[op_num[0]=='-'],
     'mul' : calc_binary,
     'add' : calc_binary,
 }
@@ -43,10 +43,11 @@ def match(rule_name, tokens):
             matched_subrules.append(matched)
         else:
             return RuleMatch(rule_name, matched_subrules), remaining_tokens
+    #raise Exception("A match was not found <%s>" % ",".join([str(t) for t in tokens]))
     return None, None   # match not found
 
 def _recurse_tree(tree, func):
-    return map(func, tree.matched) if tree.name in rule_map else tree[1]
+    return list(map(func, tree.matched)) if tree.name in rule_map else tree[1]
 
 def flatten_right_associativity(tree):
     new = _recurse_tree(tree, flatten_right_associativity)
