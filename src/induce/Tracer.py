@@ -4,18 +4,23 @@ import config as cfg
 
 class Tracer(object):
     """ The context manager that manages trace hooking and unhooking. """
-    def __init__(self, i):
+    def __init__(self, i, o=None):
         self.method = self.tracer()
         self.input = i
+        self.out = o
 
     def __enter__(self):
         """ set hook """
         sys.settrace(self.method)
+        return self
 
     def __exit__(self, type, value, traceback):
         """ unhook """
         sys.settrace(None)
-        print(file=sys.stderr)
+        if self.out is not None:
+            self.out.append({})
+        else:
+            print(file=sys.stderr)
 
     def sel_vars(self, env):
         """ get only string variables (for now). """
@@ -46,7 +51,10 @@ class Tracer(object):
         for var, value in self.sel_vars(frame_env):
             new_env[var] = value
         new_env['$input'] = self.input
-        print(json.dumps(new_env), file=sys.stderr)
+        if self.out is not None:
+            self.out.append(new_env)
+        else:
+            print(json.dumps(new_env), file=sys.stderr)
 
     def tracer(self):
         def info(caller): return (caller.f_lineno, caller.f_code.co_filename, caller.f_code.co_name)
