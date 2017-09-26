@@ -30,6 +30,7 @@ def expand(key: str, value: str, level: int) -> List[Tuple[str, str]]:
     """
     Expand one level.
     """
+    if level <= 1: return [(key, value)]
     if isinstance(value, (dict, list)):
         return [("%s_%s" % (key, k), v) for k, v in flatten(value, level-1)]
     return [(key, value)]
