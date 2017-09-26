@@ -1,11 +1,12 @@
 import sys
+import json
 import config as cfg
 
 class Tracer(object):
     """ The context manager that manages trace hooking and unhooking. """
-    def __init__(self, i, g):
+    def __init__(self, i):
         self.method = self.tracer()
-        self.input, self.grammar = i, g
+        self.input = i
 
     def __enter__(self):
         """ set hook """
@@ -14,11 +15,7 @@ class Tracer(object):
     def __exit__(self, type, value, traceback):
         """ unhook """
         sys.settrace(None)
-        self.grammar.update(self.input)
-
-    def add_if_found(self, var, value):
-        """ if the value of the variable was found in the input, add it to the current environment"""
-        if value in self.input: self.grammar.add_env(var, value)
+        print(file=sys.stderr)
 
     def sel_vars(self, env):
         """ get only string variables (for now). """
@@ -41,11 +38,15 @@ class Tracer(object):
         vself  = frame.f_locals.get('self')
         if type(vself) in [Tracer]: return
 
-        env = frame.f_globals.copy() if cfg.check_globals else {}
-        env.update(frame.f_locals) # the globals are shadowed.
-        env.update(self.getmembers(vself) if cfg.check_self else {})
+        frame_env = frame.f_globals.copy() if cfg.check_globals else {}
+        frame_env.update(frame.f_locals) # the globals are shadowed.
+        frame_env.update(self.getmembers(vself) if cfg.check_self else {})
 
-        for var, value in self.sel_vars(env): self.add_if_found(var, value)
+        new_env = {}
+        for var, value in self.sel_vars(frame_env):
+            new_env[var] = value
+        new_env['$input'] = self.input
+        print(json.dumps(new_env), file=sys.stderr)
 
     def tracer(self):
         def info(caller): return (caller.f_lineno, caller.f_code.co_filename, caller.f_code.co_name)

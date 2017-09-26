@@ -6,6 +6,7 @@ class Grammar(object):
     def __init__(self):
         self.grules = Multidict(RSet)
         self.environment = {}
+        self.i = None
 
     def __str__(self): return self.grammar_to_string(self.grules)
 
@@ -15,7 +16,8 @@ class Grammar(object):
     def nt(self, var): return "$%s" % var.upper()
 
     def add_env(self, var, value):
-        if cfg.non_trivial(var, value): self.environment[var] = value
+        if cfg.non_trivial(var, value):
+            self.environment[var] = value
 
     def get_grammar(self, my_input, local_env):
         """ Obtain a grammar for a specific input """
@@ -45,13 +47,18 @@ class Grammar(object):
 
         return grules
 
-    def update(self, i):
-         self.grules.merge(self.get_grammar(i, self.environment))
+    def update(self, frameenv):
+        self.i = frameenv['$input']
+        for var, value in frameenv.items():
+            if var == '$input': continue
+            if value in self.i: self.add_env(var, value)
+
+    def reset(self):
+        self.grules.merge(self.get_grammar(self.i, self.environment))
 
 @contextmanager
-def grammar():
+def grammar(hide=False):
     mygrammar = Grammar()
     yield mygrammar
-    print("_" * 80)
-    print("Merged grammar ->\n%s" % mygrammar)
-    print("_" * 80)
+    lines = "_" * 80
+    if not hide: print(("%s\n%s\n%s" % (lines, mygrammar, lines)))

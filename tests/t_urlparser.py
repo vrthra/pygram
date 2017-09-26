@@ -1,13 +1,12 @@
 import urlparser
 import induce, induce.helpers
 
-with induce.grammar() as g:
-  base = ''
-  for line in induce.helpers.slurplarg():
+base = ''
+for line in induce.helpers.slurplarg():
     words = line.split()
     if not words: continue
     url = words[0]
-    with induce.Tracer(url, g):
+    with induce.Tracer(url):
        parts = urlparser.urlparse(url)
        #print '%-10s : %s' % (url, parts)
     #abs = urlparser.urljoin(base, url)

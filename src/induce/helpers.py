@@ -7,7 +7,7 @@ def slurpl(src):
     with open(src) as x: return x.readlines()
 
 def slurplstrip(src):
-    with open(src) as x: return [l.strip() for l in x.readlines() if len(l.strip()) > 0]
+    with open(src) as x: return [l.strip() for l in x.readlines()]
 
 
 def slurparg():
