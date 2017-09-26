@@ -1,5 +1,6 @@
 import sys
 import json
+import collections
 import config as cfg
 
 class Tracer(object):
@@ -24,7 +25,8 @@ class Tracer(object):
 
     def sel_vars(self, env):
         """ get only string variables (for now). """
-        return [(k,v) for (k,v) in env.items() if type(v) == str]
+        keys = sorted(env.keys())
+        return [(k,env[k]) for k in keys if type(env[k]) == str]
 
     def getmembers(self, obj):
         """ get member attributes of a self variable """
@@ -47,7 +49,7 @@ class Tracer(object):
         frame_env.update(frame.f_locals) # the globals are shadowed.
         frame_env.update(self.getmembers(vself) if cfg.check_self else {})
 
-        new_env = {}
+        new_env = collections.OrderedDict()
         for var, value in self.sel_vars(frame_env):
             new_env[var] = value
         new_env['$input'] = self.input

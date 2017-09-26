@@ -1,9 +1,8 @@
 import urlparser
-import induce, induce.helpers
-import json
 import induce
-import sys
-import pdb;
+import collections
+import random
+random.seed(0)
 
 
 def test_urlparser():
@@ -11,63 +10,50 @@ def test_urlparser():
 http://www.st.cs.uni-saarland.de/zeller#ref
 https://www.cispa.saarland:80/bar
 http://foo@google.com:8080/bar?q=r#ref2
-    '''[1:-1]
+'''[1:-1]
     grammar = '''
-$START ::= $INSTRING
-	| $PSTR
-	| $URL
-$URL ::= $TOKENS:$MATCHSTRING$TOKENS.$TOKENS.$TOKENS.$TOKENS.$TOKENS$TOKENS
-	| $TOKENS:$TOKENS$TOKENS.$TOKENS.$TOKENS$TOKENS
+$START ::= $SCHEME:$MATCHSTRING$NETLOC$URL
 	| $INSTRING
-	| $TOKENS
-$MATCHSTRING ::= $TOKENLIST
-$TOKENS ::= $TOKENLIST
-$TOKENLIST ::= $TOKLIST
-$TOKLIST ::= $ITEM
-	| //
-	| $V
-$ITEM ::= uni-saarland
-	| saarland:80
-	| foo@google
-	| $FRAGMENT
-	| com:8080
-	| $NETLOC
-	| $QUERY
-	| cispa
-	| www
-	| $P1
-	| st
-	| cs
-	| de
-$V ::= $P1
+	| $SCHEME://$NETLOC$URL?$QUERY#$TOKENS
+$MATCHSTRING ::= //
 $NETLOC ::= www.st.cs.uni-saarland.de
 	| www.cispa.saarland:80
 	| foo@google.com:8080
+$SCHEME ::= http
+	| https
+$URL ::= $TOKENS
+	| $V
+$TOKENS ::= $TOKENLIST
+$TOKENLIST ::= $TOKLIST
+$TOKLIST ::= $V
+	| $ITEM
+$V ::= $P1
 $P1 ::= $SUB
-$SUB ::= $VALUE
+$SUB ::= $ITEM
+	| $VALUE
+$ITEM ::= $VALUE
+	| $FRAGMENT
 $VALUE ::= /zeller#ref
-	| $SCHEME
 	| /bar
-$SCHEME ::= https
-	| http
-$INSTRING ::= $TOKENLIST:$TOKENLIST$TOKENLIST.$TOKENLIST$TOKENLIST?$TOKENLIST#$TOKENLIST
-	| $PSTR
-	|    
-$PSTR ::= $URL
-$FRAGMENT ::= ref2
+$INSTRING ::= $PSTR
+$PSTR ::= $SCHEME://$NETLOC$URL
 $QUERY ::= q=r
+$FRAGMENT ::= ref2
 '''[1:-1]
     result = []
     for url in url_lines.split('\n'):
         with induce.Tracer(url, result) as t:
             urlparser.urlparse(url)
-    assert(len(result) == 31300)
+    assert(len(result) == 29840) # 31300)
 
     with induce.grammar() as g:
         for count, jframe in enumerate(result):
             if len(jframe) == 0:
                 g.reset()
             else:
-                g.update(jframe)
+                myframe = collections.OrderedDict()
+                for k in sorted(jframe.keys()): myframe[k] = jframe[k]
+                g.update(myframe)
+        print(str(g))
         assert(grammar == str(g))
 

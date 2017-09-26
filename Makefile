@@ -5,6 +5,7 @@ python3=python3
 env=PYTHONPATH=.:./src:./libs:./tests
 
 lint=~/.local/bin/pylint
+pytest=~/.local/bin/pytest
 jq=jq
 
 .PRECIOUS: %.js %.g
@@ -43,3 +44,6 @@ lint: typecheck
 typecheck:
 	$(python3) -m mypy src/induce/
 
+pytestflags=-vv
+test:
+	$(pytest) $(pytestflags)

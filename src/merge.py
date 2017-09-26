@@ -1,6 +1,7 @@
 import json
 import induce
 import sys
+import collections
 
 data = induce.slurplstriparg()
 l = len(data)
@@ -12,4 +13,6 @@ with induce.grammar() as g:
             g.reset()
             continue # end of a complete activation
         jframe = json.loads(sframe)
-        g.update(jframe)
+        myframe = collections.OrderedDict()
+        for k in sorted(jframe.keys()): myframe[k] = jframe[k]
+        g.update(myframe)
