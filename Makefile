@@ -1,7 +1,7 @@
 CONFIG=config.py
 
-python2=/usr/local/bin/python2
-python3=/usr/local/bin/python3
+python2=python2
+python3=python3
 env=PYTHONPATH=.:./src:./libs:./tests
 
 lint=~/.local/bin/pylint
@@ -30,7 +30,7 @@ ff:;find * -not -type d -exec file '{}' ';'
 	$(env) $(python3) tests/$*.py data/$*.dat
 
 %.grammar:
-	$(env) $(python3) tests/$*.py 3>&2 2>&1 1>&3 | $(env) $(python3) ./src/onlinemerge.py
+	$(env) $(python3) tests/$*.py data/$*.dat
 
 %.json: %.js
 	cat $*.js | $(jq) '. | [ .func_name, .event, .id | tostring] | join(" ") '
