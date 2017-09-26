@@ -40,13 +40,12 @@ def process_frame(frame: Any, loc: Dict[(str, str)], event: str, arg: str):
     frame_env['id'] = frame.__hash__()
     frame_env['func_name'] = loc['name']
     frame_env['caller_name'] = loc['cname']
-    my_parameters = {}
-    my_locals = my_copy(frame.f_locals)
-    # split parameters and locals
+
+    my_locals_cpy = my_copy(frame.f_locals)
     param_names = [frame.f_code.co_varnames[i] for i in range(frame.f_code.co_argcount)]
-    for name in param_names:
-        my_parameters[name] = my_locals[name]
-        del my_locals[name]
+    # split parameters and locals
+    my_parameters = {k:v for k, v in my_locals_cpy.items() if k in param_names}
+    my_locals = {k:v for k, v in my_locals_cpy.items() if k not in param_names}
 
     frame_env['variables'] = dict(scrub(flatten(my_locals)))
     frame_env['parameters'] = dict(scrub(flatten(my_parameters)))
@@ -82,7 +81,7 @@ def tracer() -> Any:
         kind = 'unknown'
         try:
             mymod = ast.parse(code.strip())
-            if isinstance(mymod, ast.Module):
+            if isinstance(mymod, ast.Module) and mymod.body:
                 assert len(mymod.body) == 1
                 # child = mymod.body[0]
                 # if isinstance(child, (ast.Assign, ast.AugAssign)):

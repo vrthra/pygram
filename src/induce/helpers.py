@@ -3,10 +3,12 @@ Helper module
 """
 import sys
 import copy
-from typing import List, Tuple, Any, Dict, Union
+from typing import List, Tuple, Any, Dict
 import traceback
 
-# pylint: disable=C0321,R0903,fixme
+MAX_COPY = 10
+
+# pylint: disable=multiple-statements,too-few-public-methods,fixme, unidiomatic-typecheck
 
 def slurp(src: str) -> str:
     """ read a file completely """
@@ -39,75 +41,69 @@ def scrub(obj: List[Tuple[str, Any]]) -> List[Tuple[str, str]]:
     """ Remove everything except strings from a flattened datastructure. """
     return [(k, v) for k, v in obj if isinstance(v, str)]
 
-def expand(key: str, value: str, level: int) -> List[Tuple[str, str]]:
-    """ Expand one level.  """
-    if level <= 0: return [(key, value)]
-    if isinstance(value, (dict, list)):
-        return [("%s_%s" % (key, k), v) for k, v in flatten(value, level-1)]
+def expand(key: str, value: Any, lvl: int) -> List[Tuple[str, str]]:
+    """ Expand one level."""
+    if lvl <= 0: return [(key, value)]
+    if type(value) in [dict, list]:
+        return [("%s_%s" % (key, k), v) for k, v in flatten(value, lvl-1)]
     return [(key, value)]
 
-def flatten(val: Union[Dict[(str, Any)], List[Any]], level: int = 10) -> List[Any]:
+def flatten(val: Any, lvl: int = MAX_COPY) -> List[Any]:
     """
     Make a nested data structure (only lists and dicts) into a flattened
     dict.
     """
-    if isinstance(val, dict): return flatten_dict(val, level)
-    elif isinstance(val, list): return flatten_list(val, level)
+    if type(val) == dict: return flatten_dict(val, lvl)
+    elif type(val) == list: return flatten_list(val, lvl)
     return val
 
-def flatten_dict(val: Dict[(str, Any)], level: int) -> List[Any]:
+def flatten_dict(vals: Dict[(str, Any)], lvl: int) -> List[Any]:
     """ Make a nested dict into a flattened list."""
-    lst = []
-    for k in val.keys():
-        try:
-            lst.extend(expand(k, val[k], level))
-        except KeyError:
-            print(traceback.format_exc())
-            continue
-    return lst
+    return [i for key, val in vals.items()
+            for i in expand(key, val, lvl)]
 
-def flatten_list(val: List[Any], level: int) -> List[Any]:
-    """ Make a nested list into a flattened list."""
-    return [i for k, v in enumerate(val) for i in expand(str(k), v, level)]
+def flatten_list(vals: List[Any], lvl: int) -> List[Any]:
+    """Make a nested list into a flattened list."""
+    return [i for key, val in enumerate(vals)
+            for i in expand(str(key), val, lvl)]
 
 def my_copy_list(inds: List[Any], lvl: int) -> List[Any]:
     """Deep copy a list"""
     if lvl <= 0: return []
     try:
-        lst = []
-        for item in inds:
-            if item is None: continue
-            lst.append(my_copy(item, lvl-1))
-        return lst
+        return [my_copy(val, lvl - 1) for val in inds]
     except IndexError:
         print(traceback.format_exc())
-        return []
+        raise
 
 def my_copy_dict(inds: Dict[str, Any], lvl: int) -> Dict[str, Any]:
     """Deep copy a dict"""
     if lvl <= 0: return {}
     try:
-        dct = {}
-        for k in inds.keys():
-            try:
-                dct[k] = inds[k]
-            except KeyError:
-                print(traceback.format_exc())
-                continue
-        return dct
+        return {key:my_copy(val, lvl - 1) for key, val in inds.items()}
+        # ideally KeyError never should happen. However, if we
+        # use instanceof(obj,dict) and the obj is a class that
+        # inherits from dict, there is no guarantee that a key
+        # visible in the keyset is actually accessible.
     except KeyError:
         print(traceback.format_exc())
-        return {}
+        raise
 
-def my_copy(inds: Any, lvl: int = 10) -> Union[Dict[str, Any], List[Any]]:
-    """Deep copy"""
+def my_copy(inds: Any, lvl: int = MAX_COPY) -> Any:
+    """Deep copy. We flush out the datastructures, expanding any cyclical
+    and other back references upto lvl. This helps us later in scrub and flatten
+    where we have some guarantee of no errors until this depth."""
     if inds is None: return None
-    if isinstance(inds, list):
+    # Do not do isinstance here. The custom dict derived classes such as
+    # http-parser.IOrderedDict which do not guarantee the inviolability of
+    # the dict behavior can bite us.
+    if type(inds) == list:
         return my_copy_list(inds, lvl)
-    elif isinstance(inds, dict):
+    elif type(inds) == dict:
         return my_copy_dict(inds, lvl)
     try:
         return copy.deepcopy(inds)
     except TypeError:
-        print(traceback.format_exc())
+        return None
+    except (KeyError, IndexError): # See the violation of dict guarantee
         return None
