@@ -1,9 +1,9 @@
 import urlparser
-import helpers, induce
+import induce, induce.helpers
 
 with induce.grammar() as g:
   base = ''
-  for line in helpers.slurplarg():
+  for line in induce.helpers.slurplarg():
     words = line.split()
     if not words: continue
     url = words[0]
