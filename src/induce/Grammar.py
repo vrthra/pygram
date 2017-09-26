@@ -1,27 +1,60 @@
 import config as cfg
 from contextlib import contextmanager
-from induce.Ordered import Multidict, RSet
+from induce.Ordered import MultiValueDict, OrderedSet
 
 class Grammar(object):
     def __init__(self):
-        self.grules = Multidict(RSet)
-        self.environment = {}
+        self.grules = MultiValueDict()
+        self.environment = MultiValueDict()
         self.i = None
 
     def __str__(self): return self.grammar_to_string(self.grules)
 
     def grammar_to_string(self, grules):
-        return "\n".join(["%s ::= %s" % (key, "\n\t| ".join(grules[key])) for key in grules.keys()])
+        lst = ["%s ::= %s" % (key, "\n\t| ".join([i.replace('\n', '\\n')
+                                                  for i in self.longest_first(grules[key])]))
+               for key in grules.keys()]
+        return "\n".join(lst)
 
-    def nt(self, var): return "$%s" % var.upper()
+    def longest_first(self, myset: set):
+        """For a set return a sorted list with longest element first"""
+        return sorted([l for l in myset], key=len, reverse=True)
+
+    def strip_unused_rules(self, rules):
+        """
+        Strip out rules (except start) that are not in the right side.
+        this has intelligence to avoid keeping circular rules
+        """
+        if not cfg.strip_unused_rules: return rules
+        def has_key(rules, key):
+            """Check if a key is present in RHS of given set or rules"""
+            for dvals in rules.values():
+                for prodstr in dvals:
+                    if key in prodstr: return True
+            return False
+
+        new_rules = MultiValueDict()
+        new_rules['$START'] = rules['$START']
+
+        while True:
+            new_keys = [rulevar for rulevar in sorted(rules.keys())
+                        if rulevar not in new_rules.keys() and has_key(new_rules, rulevar)]
+            for k in new_keys:
+                new_rules[k] = rules[k]
+            if not new_keys: break
+
+        return new_rules
+
+    def nonterm(self, var): return "$%s" % var.upper()
 
     def add_env(self, var, value):
         if cfg.non_trivial(var, value):
-            self.environment[var] = value
+            self.environment.setdefault(var, OrderedSet()).add(value)
 
     def get_grammar(self, my_input, local_env):
         """ Obtain a grammar for a specific input """
-        grules = {"$START": RSet([my_input])} # initial grammar
+        grules = MultiValueDict()
+        grules.setdefault("$START", OrderedSet()).add(my_input) # initial grammar
 
         # for each environmental variable, look for a match of its value in the
         # input string or its alternatives in each rule.
@@ -29,23 +62,24 @@ class Grammar(object):
         # to the grammar rules name -> value
 
         while True:
-            new_rules = Multidict(RSet)
-            for (envvar, envval) in local_env.items():
+            new_rules = MultiValueDict()
+            for (envvar, envval_djs) in local_env.items():
                 present_in_input = False
-                for key, alternatives in grules.items():
-                    matched = [i for i in alternatives if envval in i]
-                    if len(matched) > 0: present_in_input = True
-                    for m in matched:
-                        alternatives.replace(m, m.replace(envval, self.nt(envvar)))
-                if present_in_input: new_rules[envvar].add(envval)
+                for envval in envval_djs:
+                    for key, alternatives in grules.items():
+                        matched = [i for i in alternatives if envval in i]
+                        if matched: present_in_input = True
+                        for m in matched:
+                            alternatives.replace(m, m.replace(envval, self.nonterm(envvar)))
+                    if present_in_input: new_rules.setdefault(envvar, OrderedSet()).add(envval)
 
             for key in new_rules.keys():
-                grules[self.nt(key)] = new_rules[key] # Add new rule to grammar
+                grules[self.nonterm(key)] = new_rules[key] # Add new rule to grammar
                 del local_env[key] # Do not expand this again
 
             if len(new_rules) == 0: break # Nothing to expand anymore
 
-        return grules
+        return self.strip_unused_rules(grules)
 
     def update(self, frameenv):
         self.i = frameenv['$input']
