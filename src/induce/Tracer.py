@@ -1,7 +1,7 @@
 """
 The tracer module
 """
-from typing import Dict, Tuple, Any, Optional, List, Union
+from typing import Dict, Tuple, Any, Optional
 
 import sys
 import collections
@@ -9,6 +9,7 @@ import json
 import linecache
 import ast
 
+from induce.helpers import my_copy, flatten, scrub
 # pylint: disable=C0321,R0903,fixme
 
 # TODO: At least simple data flow (just parsing simple assignments)
@@ -19,43 +20,6 @@ import ast
 # Globals are like self in that it may also be considered an input.
 # However, if there is a shadowing local variable, we should ignore
 # the global.
-
-def scrub(obj: List[Tuple[str, Any]]) -> List[Tuple[str, str]]:
-    """
-    Remove everything except strings from a flattened datastructure.
-    """
-    return [(k, v) for k, v in obj if isinstance(v, str)]
-
-def expand(key: str, value: str, level: int) -> List[Tuple[str, str]]:
-    """
-    Expand one level.
-    """
-    if level <= 1: return [(key, value)]
-    if isinstance(value, (dict, list)):
-        return [("%s_%s" % (key, k), v) for k, v in flatten(value, level-1)]
-    return [(key, value)]
-
-def flatten(val: Union[Dict[(str, Any)], List[Any]], level: int = 10) -> List[Any]:
-    """
-    Make a nested data structure (only lists and dicts) into a flattened
-    dict.
-    """
-    if isinstance(val, dict): return flatten_dict(val, level)
-    elif isinstance(val, list): return flatten_list(val, level)
-    return val
-
-def flatten_dict(val: Dict[(str, Any)], level) -> List[Any]:
-    """
-    Make a nested dict into a flattened list.
-    """
-    return [item for k, v in val.items()
-            for item in expand(k, v, level)]
-
-def flatten_list(val: List[Any], level) -> List[Any]:
-    """
-    Make a nested list into a flattened list.
-    """
-    return [i for k, v in enumerate(val) for i in expand(str(k), v, level)]
 
 def process_frame(frame: Any, loc: Dict[(str, str)], event: str, arg: str):
     """
@@ -77,11 +41,10 @@ def process_frame(frame: Any, loc: Dict[(str, str)], event: str, arg: str):
     frame_env['func_name'] = loc['name']
     frame_env['caller_name'] = loc['cname']
     my_parameters = {}
-    my_locals = frame.f_locals.copy()
-
+    my_locals = my_copy(frame.f_locals)
     # split parameters and locals
-    for i in range(frame.f_code.co_argcount):
-        name = frame.f_code.co_varnames[i]
+    param_names = [frame.f_code.co_varnames[i] for i in range(frame.f_code.co_argcount)]
+    for name in param_names:
         my_parameters[name] = my_locals[name]
         del my_locals[name]
 
@@ -106,28 +69,21 @@ def process_frame(frame: Any, loc: Dict[(str, str)], event: str, arg: str):
 
 
 def tracer() -> Any:
-    """
-    Generates the trace function that gets hooked in.
-    """
+    """ Generates the trace function that gets hooked in.  """
     def loc(caller: Any) -> Tuple[str, str, int]:
-        """
-        Returns location information of the caller
-        """
+        """ Returns location information of the caller """
         return (caller.f_code.co_name, caller.f_code.co_filename, caller.f_lineno)
 
     def traceit(frame: Any, event: str, arg: Optional[str]) -> Any:
-        """
-        The actual trace function
-        """
+        """ The actual trace function """
         (mname, mfile, mline) = loc(frame)
         (cname, cfile, cline) = loc(frame.f_back)
         code = linecache.getline(mfile, mline)
-
         kind = 'unknown'
         try:
             mymod = ast.parse(code.strip())
             if isinstance(mymod, ast.Module):
-                # assert len(mymod.body) == 1
+                assert len(mymod.body) == 1
                 # child = mymod.body[0]
                 # if isinstance(child, (ast.Assign, ast.AugAssign)):
                 kind = " ".join([ast.dump(child) for child in mymod.body])
@@ -149,7 +105,7 @@ class Tracer:
         """ set hook """
         sys.settrace(self.method)
 
-    def __exit__(self, typ: str, value: str, traceback: Any):
+    def __exit__(self, typ: str, value: str, backtrace: Any):
         """ unhook """
         sys.settrace(None)
         # print an empty record to indicate one full invocation.
