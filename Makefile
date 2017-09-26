@@ -8,6 +8,9 @@ jq=jq
 
 .PRECIOUS: %.js %.g
 
+commithooks:
+	echo make lint > .git/hooks/pre-commit
+	chmod +x .git/hooks/pre-commit
 
 $(CONFIG): src/defaultconfig.py
 	cat src/defaultconfig.py > config.py
@@ -57,3 +60,5 @@ lint: typecheck
 
 typecheck:
 	$(python3) -m mypy src/induce/
+
+
