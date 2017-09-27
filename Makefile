@@ -43,7 +43,7 @@ lint: typecheck
 
 
 typecheck:
-	$(python3) -m mypy src/induce/
+	$(python3) -m mypy --strict src/induce/
 
 pytestflags=-vv
 test:

@@ -47,7 +47,7 @@ def expand(key: str, value: Any, lvl: int) -> List[Tuple[str, str]]:
         return [("%s.%s" % (key, k), v) for k, v in flatten(value, lvl-1)]
     return [(key, value)]
 
-def flatten(val: Any, lvl: int = MAX_COPY) -> List[Any]:
+def flatten(val: Any, lvl: int = MAX_COPY) -> Any:
     """
     Make a nested data structure (only lists and dicts) into a flattened
     dict.

@@ -12,8 +12,7 @@ http://www.st.cs.uni-saarland.de/zeller#ref
     grammar = '''
 $FRAGMENT ::= ref
 $NETLOC ::= www.st.cs.uni-saarland.de
-$START ::= $__NEW__:SCHEME:$_SPLITNETLOC:URL
-$_SPLITNETLOC:URL ::= //$__NEW__:NETLOC$__NEW__:PATH#$__NEW__:FRAGMENT
+$START ::= $__NEW__:SCHEME://$__NEW__:NETLOC$__NEW__:PATH#$__NEW__:FRAGMENT
 $__NEW__:FRAGMENT ::= $FRAGMENT
 $__NEW__:NETLOC ::= $NETLOC
 $__NEW__:PATH ::= /zeller
@@ -51,8 +50,8 @@ $NETLOC ::= foo@google.com:8080
 $QUERY ::= q=r
 $START ::= $__NEW__:SCHEME:$_SPLITNETLOC:URL
 	| $__NEW__:SCHEME://$__NEW__:NETLOC$__NEW__:PATH#$__NEW__:FRAGMENT
+	| $__NEW__:SCHEME://$__NEW__:NETLOC$__NEW__:PATH?$__NEW__:QUERY#$__NEW__:FRAGMENT
 $_SPLITNETLOC:URL ::= //$__NEW__:NETLOC$__NEW__:PATH
-	| //$__NEW__:NETLOC$__NEW__:PATH?$__NEW__:QUERY#$__NEW__:FRAGMENT
 $__NEW__:FRAGMENT ::= $FRAGMENT
 $__NEW__:NETLOC ::= $NETLOC
 $__NEW__:PATH ::= /bar

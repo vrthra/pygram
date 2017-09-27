@@ -1,3 +1,4 @@
+from typing import Any, List, Dict, Tuple, Optional, Iterable, Union, Iterator
 import collections
 # https://github.com/LuminosoInsight/ordered-set
 # copying here in the interest of not piping it.
@@ -25,7 +26,7 @@ SLICE_ALL = slice(None)
 __version__ = '2.0.1'
 
 
-def is_iterable(obj):
+def is_iterable(obj: Any) -> bool:
     """
     Are we being asked to look up a list of things, instead of a single thing?
     We check for the `__iter__` attribute so that this can cover types that
@@ -46,16 +47,19 @@ class OrderedSet(collections.MutableSet):
     An OrderedSet is a custom MutableSet that remembers its order, so that
     every entry has an index that can be looked up.
     """
-    def __init__(self, iterable=None):
-        self.items = []
-        self.map = {}
-        if iterable is not None:
-            self |= iterable
+    def __init__(self, iterable: Optional[Iterable] = None) -> None:
+        self.my__init__(iterable)
 
-    def __len__(self):
+    def my__init__(self, iterable: Optional[Iterable] = None) -> None:
+        self.items = [] # type: List[Any]
+        self.map = {} # type: Dict[str, Any]
+        if iterable is not None:
+            self.update(iterable)
+
+    def __len__(self) -> int:
         return len(self.items)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: Any) -> Any:
         """
         Get the item at a given index.
 
@@ -81,10 +85,10 @@ class OrderedSet(collections.MutableSet):
             raise TypeError("Don't know how to index an OrderedSet by %r" %
                             index)
 
-    def copy(self):
+    def copy(self) -> Any:
         return OrderedSet(self)
 
-    def __getstate__(self):
+    def __getstate__(self) -> Union[List[Any], Tuple[Any]]:
         if len(self) == 0:
             # The state can't be an empty list.
             # We need to return a truthy value, or else __setstate__ won't be run.
@@ -96,16 +100,16 @@ class OrderedSet(collections.MutableSet):
         else:
             return list(self)
 
-    def __setstate__(self, state):
+    def __setstate__(self, state: Tuple[Any, Any]) -> None:
         if state == (None,):
-            self.__init__([])
+            self.my__init__([])
         else:
-            self.__init__(state)
+            self.my__init__(state)
 
-    def __contains__(self, key):
+    def __contains__(self, key: Any) -> bool:
         return key in self.map
 
-    def add(self, key):
+    def add(self, key: str) -> Any:
         """
         Add `key` as an item to this OrderedSet, then return its index.
 
@@ -118,7 +122,7 @@ class OrderedSet(collections.MutableSet):
         return self.map[key]
     append = add
 
-    def update(self, sequence):
+    def update(self, sequence: Any) -> Any:
         """
         Update the set with the given iterable sequence, then return the index
         of the last element inserted.
@@ -131,7 +135,7 @@ class OrderedSet(collections.MutableSet):
             raise ValueError('Argument needs to be an iterable, got %s' % type(sequence))
         return item_index
 
-    def index(self, key):
+    def index(self, key: str) -> Any:
         """
         Get the index of a given entry, raising an IndexError if it's not
         present.
@@ -143,7 +147,7 @@ class OrderedSet(collections.MutableSet):
             return [self.index(subkey) for subkey in key]
         return self.map[key]
 
-    def pop(self):
+    def pop(self) -> Any:
         """
         Remove and return the last element from the set.
 
@@ -157,7 +161,7 @@ class OrderedSet(collections.MutableSet):
         del self.map[elem]
         return elem
 
-    def discard(self, key):
+    def discard(self, key: str) -> None:
         """
         Remove an element.  Do not raise an exception if absent.
 
@@ -172,25 +176,25 @@ class OrderedSet(collections.MutableSet):
                 if v >= i:
                     self.map[k] = v - 1
 
-    def clear(self):
+    def clear(self) -> None:
         """
         Remove all items from this OrderedSet.
         """
         del self.items[:]
         self.map.clear()
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator:
         return iter(self.items)
 
-    def __reversed__(self):
+    def __reversed__(self) -> Iterator[Any]:
         return reversed(self.items)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         if not self:
             return '%s()' % (self.__class__.__name__,)
         return '%s(%r)' % (self.__class__.__name__, list(self))
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         if isinstance(other, OrderedSet):
             return len(self) == len(other) and self.items == other.items
         try:
@@ -201,13 +205,13 @@ class OrderedSet(collections.MutableSet):
         else:
             return set(self) == other_as_set
 
-    def replace(self, key, replacement):
+    def replace(self, key: Any, replacement: Any) -> None:
         # Should replace remember the original's order?
         self.discard(key)
         self.add(replacement)
 
-def merge_odicts(g1, g2):
-    g3 = collections.OrderedDict()
+def merge_odicts(g1: collections.OrderedDict, g2: collections.OrderedDict) -> collections.OrderedDict:
+    g3 = collections.OrderedDict() # type: collections.OrderedDict[str, Any]
     for k in g1.keys():
         g3[k] = g1[k]
 

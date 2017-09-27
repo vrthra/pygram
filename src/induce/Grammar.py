@@ -1,7 +1,7 @@
 """
 Grammar inference module
 """
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Iterator, Tuple, ItemsView
 
 from contextlib import contextmanager
 import functools
@@ -21,7 +21,7 @@ def non_trivial_val(val: str) -> bool:
     """ Is the variable temporary? """
     return len(val) >= 2
 
-def non_trivial_envdict(myvar: Dict[str, str]) -> Dict[str, str]:
+def non_trivial_envdict(myvar: Dict[str, str]) -> collections.OrderedDict:
     """
     Removes small and temporary variables -- those that
     have name length under a certain value or those that
@@ -29,7 +29,7 @@ def non_trivial_envdict(myvar: Dict[str, str]) -> Dict[str, str]:
     """
     return collections.OrderedDict([(k, v) for k, v in myvar.items() if non_trivial_val(v)])
 
-def add_prefix(fname: str, mydict: Dict[str, str]):
+def add_prefix(fname: str, mydict: collections.OrderedDict) -> collections.OrderedDict:
     """
     Adds a prefix (the current function name is accepted as the parameter)
     to the variable name for a dict
@@ -37,34 +37,34 @@ def add_prefix(fname: str, mydict: Dict[str, str]):
     return collections.OrderedDict([("%s:%s" % (fname, k), v) for k, v in mydict.items()
                                     if non_trivial_val(v)])
 
-def djs_to_string(djs):
+def djs_to_string(djs: OrderedSet) -> str:
     """Convert disjoint set to string"""
     return "\n\t| ".join([i.replace('\n', '\\n') for i in sorted(djs)])
 
-def grammar_lst(rules):
+def grammar_lst(rules: collections.OrderedDict) -> List[str]:
     """
     Convert a given set of rules to their string representation
     """
     return sorted(["%s ::= %s" % (key, djs_to_string(rules[key])) for key in rules.keys()])
 
-def nonterm(var: str):
+def nonterm(var: str) -> str:
     """Produce a Non Terminal symbol"""
     return "$%s" % var.upper()
 
-def strip_unused_rules(rules: collections.OrderedDict) -> Dict[str, Any]:
+def strip_unused_rules(rules: collections.OrderedDict) -> collections.OrderedDict:
     """
     Strip out rules (except start) that are not in the right side.
     this has intelligence to avoid keeping circular rules
     """
     if not cfg.strip_unused_rules: return rules
-    def has_key(rules, key):
+    def has_key(rules: collections.OrderedDict, key: str) -> bool:
         """Check if a key is present in RHS of given set or rules"""
         for dvals in rules.values():
             for prodstr in dvals:
                 if key in prodstr: return True
         return False
 
-    new_rules = collections.OrderedDict() # type: Dict[str, Any]
+    new_rules = collections.OrderedDict() # type: collections.OrderedDict
     new_rules['$START'] = rules['$START']
 
     while True:
@@ -76,11 +76,11 @@ def strip_unused_rules(rules: collections.OrderedDict) -> Dict[str, Any]:
 
     return new_rules
 
-def get_return_value(frameenv: Dict[str, Any]) -> Dict[str, Any]:
+def get_return_value(frameenv: Dict[str, Any]) -> collections.OrderedDict:
     """
     Flatten and set the return value as caller:callee rules
     """
-    my_rv = collections.OrderedDict() # type: Dict[str, Any]
+    my_rv = collections.OrderedDict() # type: collections.OrderedDict
     return_value = frameenv['arg']
     # return_value will be a flattened dict
     if return_value:
@@ -91,15 +91,15 @@ def get_return_value(frameenv: Dict[str, Any]) -> Dict[str, Any]:
             my_rv["%s_%s" % (r_name, key)] = val
     return my_rv
 
-def most_relevant(lst: List[Any]) -> List[Any]:
+def most_relevant(lst: ItemsView[str, Any]) -> List[Tuple[str, Any]]:
     """
     Return the most relevant (non-nested) structures,
     especially reduce imporance of arrays
     """
-    def cmp(aaa, bbb):
+    def cmp(aaa: int, bbb: int) -> int:
         """py2 cmp"""
         return (aaa > bbb) - (bbb - aaa)
-    def customsort(str1, str2):
+    def customsort(str1: Tuple[str, Any], str2: Tuple[str, Any]) -> int:
         """Our custom sort"""
         s1_ = str1[0].count('.')
         s2_ = str2[0].count('.')
@@ -107,16 +107,18 @@ def most_relevant(lst: List[Any]) -> List[Any]:
         l1_ = len(str2[0])
         l2_ = len(str1[0])
         if l1_ != l2_: return cmp(l1_, l2_)
-        return str2[0] > str1[0]
-    def is_array_member(k):
+        if str1[0] > str2[0]: return 1
+        if str2[0] > str1[0]: return -1
+        return 0
+    def is_array_member(k: str) -> bool:
         """Is this an array member?"""
         return len(re.findall(r'[.]\d+', k)) > 0
     my_lst = sorted(lst, key=functools.cmp_to_key(customsort))
     return [(k, v) for k, v in my_lst if not is_array_member(k)]
 
-def get_grammar(my_input, local_env):
+def get_grammar(my_input: str, local_env: collections.OrderedDict) -> collections.OrderedDict:
     """ Obtain a grammar for a specific input """
-    grules = collections.OrderedDict()
+    grules = collections.OrderedDict() # type: collections.OrderedDict
     grules.setdefault("$START", OrderedSet()).add(my_input) # initial grammar
 
     # for each environmental variable, look for a match of its value in the
@@ -125,7 +127,7 @@ def get_grammar(my_input, local_env):
     # to the grammar rules name -> value
 
     while True:
-        new_rules = collections.OrderedDict()
+        new_rules = collections.OrderedDict() # type: collections.OrderedDict
         for envvar, envval_djs in most_relevant(local_env.items()):
             for envval in envval_djs:
                 present_in_input = False
@@ -149,16 +151,16 @@ class Grammar(object):
     """
     Grammar inference
     """
-    def __init__(self):
+    def __init__(self) -> None:
         """ Initialize grammar """
-        self.grules = collections.OrderedDict()
-        self.environment = collections.OrderedDict()
-        self.input_str = None
-        self.my_parameters = collections.OrderedDict()
+        self.grules = collections.OrderedDict() # type: collections.OrderedDict
+        self.environment = collections.OrderedDict() # type: collections.OrderedDict
+        self.input_str = ''
+        self.my_parameters = collections.OrderedDict() # type: collections.OrderedDict[str, Any]
 
-    def __str__(self): return "\n".join(grammar_lst(self.grules))
+    def __str__(self) -> str: return "\n".join(grammar_lst(self.grules))
 
-    def my_params(self, fkey: str):
+    def my_params(self, fkey: str) -> Any:
         """
         Get the set of input rules from previously saved parameters
         """
@@ -184,19 +186,19 @@ class Grammar(object):
         self.my_parameters[fkey] = collections.OrderedDict(
             [(key, val) for key, val in params.items() if val in self.input_str])
 
-    def add_env(self, var, value):
+    def add_env(self, var: str, value: Any) -> None:
         """Add var value pair to environment"""
         if non_trivial_val(value):
             self.environment.setdefault(var, OrderedSet()).add(value)
 
-    def is_in_params(self, fkey, value):
+    def is_in_params(self, fkey: str, value: str) -> bool:
         """Is the given value included in the parameters of the function"""
         params = self.my_params(fkey)
         for val in params.values():
             if value in val: return True
         return False
 
-    def update(self, frameenv):
+    def update(self, frameenv: Dict[str, Any]) -> None:
         """Update grammar with the frame"""
         fname = frameenv['func_name']
         fkey = '%s:%s' % (fname, frameenv['id'])
@@ -219,13 +221,13 @@ class Grammar(object):
             for var, value in get_return_value(frameenv).items():
                 self.add_env(var, value)
 
-    def reset(self):
+    def reset(self) -> None:
         """ reset grammar at the end of a record"""
         new_grammar = get_grammar(self.input_str, self.environment)
         self.grules = merge_odicts(self.grules, new_grammar)
 
 @contextmanager
-def grammar(hide=False):
+def grammar(hide: bool = False) -> Iterator[Any]:
     """The context manager for grammar"""
     mygrammar = Grammar()
     yield mygrammar

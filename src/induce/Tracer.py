@@ -1,7 +1,7 @@
 """
 The tracer module
 """
-from typing import Dict, Tuple, Any, Optional
+from typing import Dict, Tuple, Any, Optional, List
 
 import sys
 import collections
@@ -10,7 +10,7 @@ import linecache
 import ast
 
 from induce.helpers import my_copy, flatten, scrub
-# pylint: disable=multiple-statements,fixme, unidiomatic-typecheck
+# pylint: disable=multiple-statements,fixme, unidiomatic-typecheck, line-too-long
 
 # TODO: At least simple data flow (just parsing simple assignments)
 # would be useful to restrict the induced grammar.
@@ -28,7 +28,7 @@ def decorate(clazz: str, _: int, key: str) -> str:
 
 class Tracer:
     """ The context manager that manages trace hooking and unhooking. """
-    def __init__(self, in_data, out_data=None) -> None:
+    def __init__(self, in_data: str, out_data: Optional[List[Dict[str, Any]]] = None) -> None:
         self.method = self.tracer()
         self.indata = in_data
         self.outdata = out_data
@@ -37,7 +37,7 @@ class Tracer:
         """ set hook """
         sys.settrace(self.method)
 
-    def __exit__(self, typ: str, value: str, backtrace: Any):
+    def __exit__(self, typ: str, value: str, backtrace: Any) -> None:
         """ unhook """
         sys.settrace(None)
         # print an empty record to indicate one full invocation.
@@ -79,7 +79,7 @@ class Tracer:
             return traceit
         return traceit
 
-    def process_frame(self, frame: Any, loc: Dict[(str, str)], event: str, arg: str):
+    def process_frame(self, frame: Any, loc: Dict[(str, str)], event: str, arg: Optional[str]) -> None:
         """
         For the current frame (distinguished by id), save the parameter values,
         and save all the values that each variable takes. Process globals and
