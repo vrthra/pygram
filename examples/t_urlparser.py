@@ -8,12 +8,3 @@ for line in induce.helpers.slurplarg():
     url = words[0]
     with induce.Tracer(url):
        parts = urlparser.urlparse(url)
-       #print '%-10s : %s' % (url, parts)
-    #abs = urlparser.urljoin(base, url)
-    #if not base: base = abs
-    #wrapped = '<URL:%s>' % abs
-    #print '%-10s = %s' % (url, wrapped)
-    #if len(words) == 3 and words[1] == '=':
-    #    if wrapped != words[2]:
-    #        print 'EXPECTED', words[2], '!!!!!!!!!!'
-

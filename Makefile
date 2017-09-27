@@ -20,7 +20,7 @@ nopyc:; find . -name \*.pyc | xargs rm
 ff:;find * -not -type d -exec file '{}' ';'
 
 %.js: src/induce/Tracer.py
-	$(env) $(python3) tests/$*.py data/$*.dat 2> $@.tmp
+	$(env) $(python3) examples/$*.py data/$*.dat 2> $@.tmp
 	mv $@.tmp $@
 
 %.g: %.js
@@ -29,10 +29,10 @@ ff:;find * -not -type d -exec file '{}' ';'
 	mv $@.tmp $@
 
 %.jsx:
-	$(env) $(python3) tests/$*.py data/$*.dat
+	$(env) $(python3) examples/$*.py data/$*.dat
 
 %.grammar:
-	$(env) $(python3) tests/$*.py data/$*.dat
+	$(env) $(python3) examples/$*.py data/$*.dat
 
 %.json: %.js
 	cat $*.js | $(jq) '. | [ .func_name, .event, .id | tostring] | join(" ") '
