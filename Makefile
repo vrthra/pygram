@@ -7,6 +7,7 @@ env=PYTHONPATH=.:./src:./libs:./tests
 lint=~/.local/bin/pylint
 pytest=~/.local/bin/pytest
 jq=jq
+test=~/.local/bin/py.test
 
 .PRECIOUS: %.js %.g
 
@@ -46,4 +47,4 @@ typecheck:
 
 pytestflags=-vv
 test:
-	$(pytest) $(pytestflags)
+	$(env) $(pytest) $(pytestflags)
