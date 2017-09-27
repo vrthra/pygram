@@ -2,10 +2,8 @@
 Helper module
 """
 import sys
-import copy
 from typing import List, Tuple, Any, Dict
 import traceback
-import config as cfg
 
 MAX_COPY = 10
 

@@ -10,7 +10,7 @@ import linecache
 import ast
 
 from induce.helpers import my_copy, flatten, scrub
-# pylint: disable=C0321,R0903,fixme
+# pylint: disable=multiple-statements,fixme, unidiomatic-typecheck
 
 # TODO: At least simple data flow (just parsing simple assignments)
 # would be useful to restrict the induced grammar.
@@ -20,6 +20,12 @@ from induce.helpers import my_copy, flatten, scrub
 # Globals are like self in that it may also be considered an input.
 # However, if there is a shadowing local variable, we should ignore
 # the global.
+
+def sel_vars(env):
+    """ get only string variables (for now). """
+    keys = sorted(env.keys())
+    return [(k, env[k]) for k in keys if type(env[k]) == str]
+
 
 class Tracer:
     """ The context manager that manages trace hooking and unhooking. """
@@ -39,6 +45,7 @@ class Tracer:
         self.out({})
 
     def out(self, val: Dict[str, Any]) -> None:
+        """Handle data output either as print or as json string"""
         if self.outdata is not None:
             self.outdata.append(val)
         else:
@@ -67,16 +74,11 @@ class Tracer:
             except SyntaxError: pass
 
             self.process_frame(frame,
-                          {'name':mname, 'file':mfile, 'line': str(mline),
-                           'cname': cname, 'cfile': cfile, 'cline': str(cline),
-                           'code': code, 'kind': kind}, event, arg)
+                               {'name':mname, 'file':mfile, 'line': str(mline),
+                                'cname': cname, 'cfile': cfile, 'cline': str(cline),
+                                'code': code, 'kind': kind}, event, arg)
             return traceit
         return traceit
-
-    def sel_vars(self, env):
-        """ get only string variables (for now). """
-        keys = sorted(env.keys())
-        return [(k,env[k]) for k in keys if type(env[k]) == str]
 
     def process_frame(self, frame: Any, loc: Dict[(str, str)], event: str, arg: str):
         """
@@ -104,7 +106,7 @@ class Tracer:
         my_parameters = {k:v for k, v in my_locals_cpy.items() if k in param_names}
         my_locals = {k:v for k, v in my_locals_cpy.items() if k not in param_names}
 
-        frame_env['string_vars'] = self.sel_vars(my_locals_cpy)
+        frame_env['string_vars'] = sel_vars(my_locals_cpy)
         frame_env['variables'] = dict(scrub(flatten(my_locals)))
         frame_env['parameters'] = dict(scrub(flatten(my_parameters)))
 
