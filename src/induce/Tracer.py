@@ -112,7 +112,7 @@ class Tracer:
         # should be assigned to as self[clazz_name+obj_id].member = value
         # and other objects should be varname[clazz_name+obj_id].member = value
         frame_env['self'] = {}
-        if hasattr(vself, '__dict__') and isinstance(vself.__dict__, dict):
+        if hasattr(vself, '__dict__') and type(vself.__dict__) == dict:
             clazz = vself.__class__.__name__
             frame_env['self'].update({decorate(clazz, my_id, k):v for (k, v) in
                                       scrub(flatten(vself.__dict__))})
