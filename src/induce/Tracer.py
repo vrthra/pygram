@@ -66,10 +66,8 @@ class Tracer:
             try:
                 mymod = ast.parse(code.strip())
                 if isinstance(mymod, ast.Module) and mymod.body:
-                    assert len(mymod.body) == 1
-                    # child = mymod.body[0]
-                    # if isinstance(child, (ast.Assign, ast.AugAssign)):
-                    kind = " ".join([ast.dump(child) for child in mymod.body])
+                    if len(mymod.body) == 1:
+                        kind = " ".join([ast.dump(child) for child in mymod.body])
             except SyntaxError: pass
 
             self.process_frame(frame,

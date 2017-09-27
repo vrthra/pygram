@@ -10,9 +10,34 @@ def test_urlparser1():
 http://www.st.cs.uni-saarland.de/zeller#ref
 '''[1:-1]
     grammar = '''
-$START ::= $URLPARSE:URL
-$URLPARSE:URL ::= $URLSPLIT:URL
-$URLSPLIT:URL ::= http://www.st.cs.uni-saarland.de/zeller#ref
+$<LISTCOMP>:__GETITEM___@ ::= $__IADD__:__GETITEM___@
+$ITEM ::= cs
+	| de
+	| st
+	| uni-saarland
+	| www
+$LITERAL.MATCH ::= //
+$POSTPARSE:TOKENLIST ::= $__INIT__:TOKLIST
+$START ::= $__DELITEM__:__GETITEM___@:$_PARSENOCACHE:POSTPARSE_@$_PARSENOCACHE:POSTPARSE_@.$_PARSENOCACHE:POSTPARSE_@.$_PARSENOCACHE:POSTPARSE_@.$_PARSENOCACHE:POSTPARSE_@.$_PARSENOCACHE:POSTPARSE_@$__DELITEM__:__GETITEM___@
+$SUB ::= /zeller#ref
+	| http
+$TOKENS ::= $ITEM
+	| $LITERAL.MATCH
+$URLSPLIT:__GETATTR___@ ::= $__SETITEM__:V
+$VALUE ::= $SUB
+$_PARSENOCACHE:POSTPARSE_@ ::= $POSTPARSE:TOKENLIST
+	| $__INIT__:MATCHSTRING
+$__DELITEM__:__GETITEM___@ ::= $__GETATTR__:__GETITEM___@
+$__GETATTR__:__GETITEM___@ ::= $__GETITEM__:__GETITEM___@
+$__GETITEM__:__GETITEM___@ ::= $URLSPLIT:__GETATTR___@
+	| $__SETITEM__:__GETITEM___@
+$__IADD__:__GETITEM___@ ::= $VALUE
+$__INIT__:MATCHSTRING ::= $__INIT__:TOKLIST
+$__INIT__:P1 ::= $VALUE
+$__INIT__:TOKLIST ::= $__NEW__:TOKLIST
+$__NEW__:TOKLIST ::= $TOKENS
+$__SETITEM__:V ::= $__INIT__:P1
+$__SETITEM__:__GETITEM___@ ::= $<LISTCOMP>:__GETITEM___@
 '''[1:-1]
     result = []
     for url in url_lines.split('\n'):
