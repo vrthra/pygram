@@ -206,11 +206,16 @@ class OrderedSet(collections.MutableSet):
         self.discard(key)
         self.add(replacement)
 
-class MultiValueDict(collections.OrderedDict):
-    def merge(self, g2):
-        for k, v in g2.items():
-            self[k] = self.setdefault(k, OrderedSet()) | v
+def merge_odicts(g1, g2):
+    g3 = collections.OrderedDict()
+    for k in g1.keys():
+        g3[k] = g1[k]
 
-    def merge_dict(self, d):
-        for k, v in d.items():
-            self.setdefault(k, OrderedSet()).add(v)
+    for g2k in g2.keys():
+        g2v = g2[g2k]
+        g1v = g1.get(g2k)
+        if g1v:
+            g3[g2k] = g1v | g2v
+        else:
+            g3[g2k] = g2v
+    return g3

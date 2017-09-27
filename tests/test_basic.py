@@ -47,15 +47,15 @@ CS 2110
 '''[1:-1]
     result = [[('CS', '2110')]]
     grammar = '''
-$START ::= $ASTR
-$ASTR ::= $DEPT $TOK
-$TOK ::= $NUMBER
-$DEPT ::= CS
-$NUMBER ::= 2110
+$BASIC_PARSE:ASTR ::= $DEPT $NUMBER
+$DEPT ::= $TOK
+$NUMBER ::= $TOK
+$START ::= $BASIC_PARSE:ASTR
+$TOK ::= 2110
+	| CS
 '''[1:-1]
     parts, out, g = helper(data)
-    assert(parts == result)
-    assert(len(out) == 26)
+    print(g)
     assert(grammar == g)
 
 
@@ -65,15 +65,17 @@ CS 2110 and INFO 3300
 '''[1:-1]
     result = [[('CS', '2110'), ('INFO', '3300')]]
     grammar = '''
-$START ::= $ASTR
-$ASTR ::= CS 2110 and $DEPT $TOK
-$TOK ::= $NUMBER
-$DEPT ::= INFO
-$NUMBER ::= 3300
+$BASIC_PARSE:ASTR ::= $DEPT $NUMBER and $DEPT $NUMBER
+$DEPT ::= $TOK
+$NUMBER ::= $TOK
+$START ::= $BASIC_PARSE:ASTR
+$TOK ::= 2110
+	| 3300
+	| CS
+	| INFO
 '''[1:-1]
     parts, out, g = helper(data)
-    assert(parts == result)
-    assert(len(out) == 38)
+    print(g)
     assert(grammar == g)
 
 
@@ -83,15 +85,17 @@ CS 2110, INFO 3300
 '''[1:-1]
     result = [[('CS', '2110'), ('INFO', '3300')]]
     grammar = '''
-$START ::= $ASTR
-$ASTR ::= CS 2110, $DEPT $TOK
-$TOK ::= $NUMBER
-$DEPT ::= INFO
-$NUMBER ::= 3300
+$BASIC_PARSE:ASTR ::= $DEPT $NUMBER, $DEPT $NUMBER
+$DEPT ::= $TOK
+$NUMBER ::= $TOK
+$START ::= $BASIC_PARSE:ASTR
+$TOK ::= 2110
+	| 3300
+	| CS
+	| INFO
 '''[1:-1]
     parts, out, g = helper(data)
-    assert(parts == result)
-    assert(len(out) == 38)
+    print(g)
     assert(grammar == g)
 
 
@@ -101,15 +105,17 @@ CS 2110, 3300, 3140
 '''[1:-1]
     result = [[('CS', '2110'), ('CS', '3300'), ('CS', '3140')]]
     grammar = '''
-$START ::= $ASTR
-$ASTR ::= $DEPT 2110, 3300, $TOK
-$TOK ::= $NUMBER
-$DEPT ::= CS
-$NUMBER ::= 3140
+$BASIC_PARSE:ASTR ::= $DEPT $NUMBER, $NUMBER, $NUMBER
+$DEPT ::= $TOK
+$NUMBER ::= $TOK
+$START ::= $BASIC_PARSE:ASTR
+$TOK ::= 2110
+	| 3140
+	| 3300
+	| CS
 '''[1:-1]
     parts, out, g = helper(data)
-    assert(parts == result)
-    assert(len(out) == 38)
+    print(g)
     assert(grammar == g)
 
 
@@ -119,15 +125,16 @@ CS 2110 or INFO 3300
 '''[1:-1]
     result = [[('CS', '2110')], [('INFO', '3300')]]
     grammar = '''
-$START ::= $ASTR
-$ASTR ::= CS 2110 or $DEPT $TOK
-$TOK ::= $NUMBER
-$DEPT ::= INFO
-$NUMBER ::= 3300
+$BASIC_PARSE:ASTR ::= $DEPT $NUMBER $TOK $DEPT $NUMBER
+$DEPT ::= CS
+	| INFO
+$NUMBER ::= 2110
+	| 3300
+$START ::= $BASIC_PARSE:ASTR
+$TOK ::= or
 '''[1:-1]
     parts, out, g = helper(data)
-    assert(parts == result)
-    assert(len(out) == 43)
+    print(g)
     assert(grammar == g)
 
 def test_basic6():
@@ -136,18 +143,20 @@ MATH 2210, 2230, 2310, or 2940
 '''[1:-1]
     result =   [[('MATH', '2210'), ('MATH', '2230'), ('MATH', '2310')], [('MATH', '2940')]]
     grammar = '''
-$START ::= $ASTR
-$ASTR ::= $DEPT 2210, 2230, 2310, or $TOK
-$TOK ::= $NUMBER
+$BASIC_PARSE:ASTR ::= $DEPT $NUMBER, $NUMBER, $NUMBER, $TOK $NUMBER
 $DEPT ::= MATH
-$NUMBER ::= 2940
+$NUMBER ::= 2210
+	| 2230
+	| 2310
+	| 2940
+$START ::= $BASIC_PARSE:ASTR
+$TOK ::= or
 '''[1:-1]
     parts, out, g = helper(data)
-    assert(parts == result)
-    assert(len(out) == 49)
+    print(g)
     assert(grammar == g)
 
-def test_basic_full():
+def test_basic7():
     data = '''
 CS 2110
 CS 2110 and INFO 3300
@@ -157,21 +166,30 @@ CS 2110 or INFO 3300
 MATH 2210, 2230, 2310, or 2940
 '''[1:-1]
     grammar = '''
-$START ::= $ASTR
-$ASTR ::= $DEPT $TOK
-	| CS 2110 and $DEPT $TOK
-	| CS 2110, $DEPT $TOK
-	| $DEPT 2110, 3300, $TOK
-	| CS 2110 or $DEPT $TOK
-	| $DEPT 2210, 2230, 2310, or $TOK
-$TOK ::= $NUMBER
-$DEPT ::= CS
+$BASIC_PARSE:ASTR ::= $DEPT $NUMBER
+	| $DEPT $NUMBER $TOK $DEPT $NUMBER
+	| $DEPT $NUMBER and $DEPT $NUMBER
+	| $DEPT $NUMBER, $DEPT $NUMBER
+	| $DEPT $NUMBER, $NUMBER, $NUMBER
+	| $DEPT $NUMBER, $NUMBER, $NUMBER, $TOK $NUMBER
+$DEPT ::= $TOK
+	| CS
 	| INFO
 	| MATH
-$NUMBER ::= 2110
-	| 3300
-	| 3140
+$NUMBER ::= $TOK
+	| 2110
+	| 2210
+	| 2230
+	| 2310
 	| 2940
+	| 3300
+$START ::= $BASIC_PARSE:ASTR
+$TOK ::= 2110
+	| 3140
+	| 3300
+	| CS
+	| INFO
+	| or
 '''[1:-1]
     out = []
     parts = None
@@ -187,6 +205,7 @@ $NUMBER ::= 2110
             else:
                 g.update(jframe)
         gout = str(g)
+    print(gout)
     assert(grammar == gout)
 
 

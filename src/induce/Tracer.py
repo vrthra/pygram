@@ -21,10 +21,9 @@ from induce.helpers import my_copy, flatten, scrub
 # However, if there is a shadowing local variable, we should ignore
 # the global.
 
-def sel_vars(env):
-    """ get only string variables (for now). """
-    keys = sorted(env.keys())
-    return [(k, env[k]) for k in keys if type(env[k]) == str]
+def decorate(clazz: str, _: int, key: str) -> str:
+    """Add a class and id prefix to a variable"""
+    return '%s.%s' % (clazz, key)
 
 
 class Tracer:
@@ -107,7 +106,6 @@ class Tracer:
         my_parameters = {k:v for k, v in my_locals_cpy.items() if k in param_names}
         my_locals = {k:v for k, v in my_locals_cpy.items() if k not in param_names}
 
-        frame_env['string_vars'] = sel_vars(my_locals_cpy)
         frame_env['variables'] = dict(scrub(flatten(my_locals)))
         frame_env['parameters'] = dict(scrub(flatten(my_parameters)))
 
@@ -118,7 +116,7 @@ class Tracer:
         frame_env['self'] = {}
         if hasattr(vself, '__dict__') and isinstance(vself.__dict__, dict):
             clazz = vself.__class__.__name__
-            frame_env['self'].update({'%s[%d].%s' % (clazz, my_id, k):v for (k, v) in
+            frame_env['self'].update({decorate(clazz, my_id, k):v for (k, v) in
                                       scrub(flatten(vself.__dict__))})
         frame_env['event'] = event
         frame_env['arg'] = dict(scrub(flatten({'@': arg})))

@@ -5,43 +5,19 @@ import random
 random.seed(0)
 
 
-def xtest_urlparser1():
+def test_urlparser1():
     url_lines = '''
 http://www.st.cs.uni-saarland.de/zeller#ref
 '''[1:-1]
     grammar = '''
-$VALUE ::= $SCHEME
-$URL ::= $V
-	| $TOKENS
-$MATCHSTRING ::= //
-$P1 ::= $VALUE
-$START ::= $P1:$MATCHSTRING$NETLOC$TOKLIST
-	| $P1://$NETLOC$SUB?$QUERY#$TOKLIST
-	| $P1://$NETLOC$TOKLIST
-$NETLOC ::= foo@google.com:8080
-	| www.st.cs.uni-saarland.de
-	| www.cispa.saarland:80
-$TOKLIST ::= $OBJ
-$TOKENLIST ::= $V
-	| ref2
-$QUERY ::= q=r
-$TOKENS ::= $ITEM
-$ITEM ::= $TOKENLIST
-$SCHEME ::= http
-	| https
-$V ::= /zeller#ref
-	| /bar
-$OBJ ::= $FRAGMENT
-	| $SUB
-$FRAGMENT ::= $TOKENS
-$SUB ::= $URL
+$START ::= $URLPARSE:URL
+$URLPARSE:URL ::= $URLSPLIT:URL
+$URLSPLIT:URL ::= http://www.st.cs.uni-saarland.de/zeller#ref
 '''[1:-1]
     result = []
     for url in url_lines.split('\n'):
         with induce.Tracer(url, result) as t:
             urlparser.urlparse(url)
-    assert(len(result) == 2031) # 31300)
-
     with induce.grammar() as g:
         for count, jframe in enumerate(result):
             if len(jframe) == 0:
@@ -53,45 +29,59 @@ $SUB ::= $URL
         print(str(g))
         assert(grammar == str(g))
 
-def xtest_urlparser2():
+def test_urlparser2():
     url_lines = '''
 http://www.st.cs.uni-saarland.de/zeller#ref
 https://www.cispa.saarland:80/bar
 http://foo@google.com:8080/bar?q=r#ref2
 '''[1:-1]
     grammar = '''
-$VALUE ::= $SCHEME
-$URL ::= $V
-	| $TOKENS
-$MATCHSTRING ::= //
-$P1 ::= $VALUE
-$START ::= $P1:$MATCHSTRING$NETLOC$TOKLIST
-	| $P1://$NETLOC$SUB?$QUERY#$TOKLIST
-	| $P1://$NETLOC$TOKLIST
-$NETLOC ::= foo@google.com:8080
-	| www.st.cs.uni-saarland.de
-	| www.cispa.saarland:80
-$TOKLIST ::= $OBJ
-$TOKENLIST ::= $V
+$<LISTCOMP>:__GETITEM___@ ::= $__IADD__:__GETITEM___@
+$FRAGMENT ::= $ITEM
+$ITEM ::= cispa
+	| com:8080
+	| foo@google
 	| ref2
+	| saarland:80
+	| www
+$LITERAL.MATCH ::= //
+$NETLOC ::= www.st.cs.uni-saarland.de
+$POSTPARSE:TOKENLIST ::= $__INIT__:TOKLIST
 $QUERY ::= q=r
-$TOKENS ::= $ITEM
-$ITEM ::= $TOKENLIST
-$SCHEME ::= http
+$START ::= $URLPARSE:URL
+	| $_PARSENOCACHE:POSTPARSE_@:$_PARSENOCACHE:POSTPARSE_@$_PARSENOCACHE:POSTPARSE_@.$_PARSENOCACHE:POSTPARSE_@$_PARSENOCACHE:POSTPARSE_@?$_PARSENOCACHE:POSTPARSE_@#$_PARSENOCACHE:POSTPARSE_@
+	| $_PARSENOCACHE:POSTPARSE_@:$_PARSENOCACHE:POSTPARSE_@$_PARSENOCACHE:POSTPARSE_@.$_PARSENOCACHE:POSTPARSE_@.$_PARSENOCACHE:POSTPARSE_@$_PARSENOCACHE:POSTPARSE_@
+$SUB ::= /bar
+	| http
 	| https
-$V ::= /zeller#ref
-	| /bar
-$OBJ ::= $FRAGMENT
-	| $SUB
-$FRAGMENT ::= $TOKENS
-$SUB ::= $URL
+$TOKENS ::= $ITEM
+	| $LITERAL.MATCH
+	| $QUERY
+$URLPARSE:URL ::= $URLSPLIT:URL
+$URLSPLIT:URL ::= http://$NETLOC/zeller#ref
+$URLSPLIT:__GETATTR___@ ::= $__SETITEM__:V
+$URLSPLIT:__GETITEM___@ ::= $__INIT__:TOKLIST
+$VALUE ::= $SUB
+$_PARSENOCACHE:POSTPARSE_@ ::= $POSTPARSE:TOKENLIST
+	| $URLSPLIT:__GETITEM___@
+	| $__DELITEM__:__GETITEM___@
+	| $__SETITEM__:__GETITEM___@
+$__DELITEM__:__GETITEM___@ ::= $__GETITEM__:__GETITEM___@
+$__GETATTR__:__GETITEM___@ ::= $<LISTCOMP>:__GETITEM___@
+	| $URLSPLIT:__GETATTR___@
+$__GETITEM__:__GETITEM___@ ::= $__GETATTR__:__GETITEM___@
+$__IADD__:__GETITEM___@ ::= $__INIT__:P1
+$__INIT__:P1 ::= $VALUE
+$__INIT__:TOKLIST ::= $__NEW__:TOKLIST
+$__NEW__:TOKLIST ::= $FRAGMENT
+	| $TOKENS
+$__SETITEM__:V ::= $__INIT__:P1
+$__SETITEM__:__GETITEM___@ ::= $__GETITEM__:__GETITEM___@
 '''[1:-1]
     result = []
     for url in url_lines.split('\n'):
         with induce.Tracer(url, result) as t:
             urlparser.urlparse(url)
-    assert(len(result) == 7309) # 31300)
-
     with induce.grammar() as g:
         for count, jframe in enumerate(result):
             if len(jframe) == 0:

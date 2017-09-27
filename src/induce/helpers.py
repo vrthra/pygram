@@ -44,7 +44,7 @@ def expand(key: str, value: Any, lvl: int) -> List[Tuple[str, str]]:
     """ Expand one level."""
     if lvl <= 0: return [(key, value)]
     if type(value) in [dict, list]:
-        return [("%s_%s" % (key, k), v) for k, v in flatten(value, lvl-1)]
+        return [("%s.%s" % (key, k), v) for k, v in flatten(value, lvl-1)]
     return [(key, value)]
 
 def flatten(val: Any, lvl: int = MAX_COPY) -> List[Any]:

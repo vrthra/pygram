@@ -10,12 +10,14 @@ def test_urlparse1():
 http://www.st.cs.uni-saarland.de/zeller#ref
 '''[1:-1]
     grammar = '''
-$START ::= $SCHEME://$NETLOC$URL#$FRAGMENT
-$URL ::= $PATH
-$SCHEME ::= http
-$NETLOC ::= www.st.cs.uni-saarland.de
 $FRAGMENT ::= ref
-$PATH ::= /zeller
+$NETLOC ::= www.st.cs.uni-saarland.de
+$START ::= $__NEW__:SCHEME:$_SPLITNETLOC:URL
+$_SPLITNETLOC:URL ::= //$__NEW__:NETLOC$__NEW__:PATH#$__NEW__:FRAGMENT
+$__NEW__:FRAGMENT ::= $FRAGMENT
+$__NEW__:NETLOC ::= $NETLOC
+$__NEW__:PATH ::= /zeller
+$__NEW__:SCHEME ::= http
 '''[1:-1]
     result = []
     for url in url_lines.split('\n'):
@@ -41,26 +43,28 @@ https://www.cispa.saarland:80/bar
 http://foo@google.com:8080/bar?q=r#ref2
 '''[1:-1]
     grammar = '''
-$START ::= $SCHEME://$NETLOC$URL#$FRAGMENT
-	| $SCHEME://$NETLOC$URL
-	| $SCHEME://$NETLOC$URL?$QUERY#$FRAGMENT
-$URL ::= $PATH
 $FRAGMENT ::= ref
 	| ref2
-$NETLOC ::= www.st.cs.uni-saarland.de
+$NETLOC ::= foo@google.com:8080
 	| www.cispa.saarland:80
-	| foo@google.com:8080
-$SCHEME ::= http
-	| https
-$PATH ::= /zeller
-	| /bar
+	| www.st.cs.uni-saarland.de
 $QUERY ::= q=r
+$START ::= $__NEW__:SCHEME:$_SPLITNETLOC:URL
+	| $__NEW__:SCHEME://$__NEW__:NETLOC$__NEW__:PATH#$__NEW__:FRAGMENT
+$_SPLITNETLOC:URL ::= //$__NEW__:NETLOC$__NEW__:PATH
+	| //$__NEW__:NETLOC$__NEW__:PATH?$__NEW__:QUERY#$__NEW__:FRAGMENT
+$__NEW__:FRAGMENT ::= $FRAGMENT
+$__NEW__:NETLOC ::= $NETLOC
+$__NEW__:PATH ::= /bar
+	| /zeller
+$__NEW__:QUERY ::= $QUERY
+$__NEW__:SCHEME ::= http
+	| https
 '''[1:-1]
     result = []
     for url in url_lines.split('\n'):
         with induce.Tracer(url, result) as t:
             urlparse(url)
-    assert(len(result) == 217)
 
     with induce.grammar() as g:
         for count, jframe in enumerate(result):
