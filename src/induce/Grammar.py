@@ -83,8 +83,7 @@ class Grammar(object):
 
     def update(self, frameenv):
         self.i = frameenv['$input']
-        for var, value in frameenv.items():
-            if var == '$input': continue
+        for var, value in frameenv['string_vars']:
             if value in self.i: self.add_env(var, value)
 
     def reset(self):

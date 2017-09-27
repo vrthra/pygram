@@ -5,6 +5,7 @@ import sys
 import copy
 from typing import List, Tuple, Any, Dict
 import traceback
+import config as cfg
 
 MAX_COPY = 10
 
@@ -102,7 +103,8 @@ def my_copy(inds: Any, lvl: int = MAX_COPY) -> Any:
     elif type(inds) == dict:
         return my_copy_dict(inds, lvl)
     try:
-        return copy.deepcopy(inds)
+        # we dont care what happens to other ds for now.
+        return inds
     except TypeError:
         return None
     except (KeyError, IndexError): # See the violation of dict guarantee

@@ -7,10 +7,10 @@ data = induce.slurplstriparg()
 l = len(data)
 with induce.grammar() as g:
     for count, sframe in enumerate(data):
-        if len(sframe.strip()) == 0:
-            g.reset()
-            continue # end of a complete activation
+        if not sframe: continue
         jframe = json.loads(sframe)
-        myframe = collections.OrderedDict()
-        for k in sorted(jframe.keys()): myframe[k] = jframe[k]
-        g.update(myframe)
+        if not jframe:
+            g.reset()
+        else:
+            # end of a complete activation
+            g.update(jframe)
