@@ -96,7 +96,8 @@ class Tracer:
 
         frame_env = collections.OrderedDict() # type: collections.OrderedDict
 
-        frame_env['id'] = frame.__hash__()
+        my_id = frame.__hash__()
+        frame_env['id'] = my_id
         frame_env['func_name'] = loc['name']
         frame_env['caller_name'] = loc['cname']
 
@@ -117,7 +118,7 @@ class Tracer:
         frame_env['self'] = {}
         if hasattr(vself, '__dict__') and isinstance(vself.__dict__, dict):
             clazz = vself.__class__.__name__
-            frame_env['self'].update({'%s.%s' % (clazz, k):v for (k, v) in
+            frame_env['self'].update({'%s[%d].%s' % (clazz, my_id, k):v for (k, v) in
                                       scrub(flatten(vself.__dict__))})
         frame_env['event'] = event
         frame_env['arg'] = dict(scrub(flatten({'@': arg})))
