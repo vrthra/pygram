@@ -10,13 +10,15 @@ def test_urlparse1():
 http://www.st.cs.uni-saarland.de/zeller#ref
 '''[1:-1]
     grammar = '''
-$START ::= $__NEW__:SCHEME://$__NEW__:NETLOC$__NEW__:PATH#$__NEW__:FRAGMENT
-$__NEW__:FRAGMENT ::= $FRAGMENT
-$__NEW__:NETLOC ::= $NETLOC
+$START ::= $__NEW__:SCHEME://$URLPARSE:NETLOC$__NEW__:PATH#$URLPARSE:FRAGMENT
+$URLPARSE:FRAGMENT ::= $URLSPLIT:FRAGMENT
+$URLPARSE:NETLOC ::= $URLSPLIT:NETLOC
 $__NEW__:SCHEME ::= http
 $__NEW__:PATH ::= /zeller
-$FRAGMENT ::= ref
-$NETLOC ::= www.st.cs.uni-saarland.de
+$URLSPLIT:FRAGMENT ::= $__NEW__:FRAGMENT
+$URLSPLIT:NETLOC ::= $__NEW__:NETLOC
+$__NEW__:FRAGMENT ::= ref
+$__NEW__:NETLOC ::= www.st.cs.uni-saarland.de
 '''[1:-1]
     result = []
     for url in url_lines.split('\n'):
@@ -37,22 +39,27 @@ http://foo@google.com:8080/bar?q=r#ref2
 '''[1:-1]
     grammar = '''
 $START ::= $__NEW__:SCHEME:$_SPLITNETLOC:URL
-	| $__NEW__:SCHEME://$__NEW__:NETLOC$__NEW__:PATH#$__NEW__:FRAGMENT
-	| $__NEW__:SCHEME://$__NEW__:NETLOC$__NEW__:PATH?$__NEW__:QUERY#$__NEW__:FRAGMENT
-$__NEW__:FRAGMENT ::= $FRAGMENT
-$__NEW__:NETLOC ::= $NETLOC
+	| $__NEW__:SCHEME://$URLPARSE:NETLOC$__NEW__:PATH#$URLPARSE:FRAGMENT
+	| $__NEW__:SCHEME://$URLPARSE:NETLOC$__NEW__:PATH?$URLPARSE:QUERY#$URLPARSE:FRAGMENT
+$URLPARSE:FRAGMENT ::= $URLSPLIT:FRAGMENT
+	| $__NEW__:FRAGMENT
+$URLPARSE:NETLOC ::= $URLSPLIT:NETLOC
+	| $__NEW__:NETLOC
 $__NEW__:SCHEME ::= http
 	| https
 $__NEW__:PATH ::= /bar
 	| /zeller
-$FRAGMENT ::= ref
+$__NEW__:FRAGMENT ::= ref
 	| ref2
-$NETLOC ::= foo@google.com:8080
+$__NEW__:NETLOC ::= foo@google.com:8080
 	| www.cispa.saarland:80
 	| www.st.cs.uni-saarland.de
-$_SPLITNETLOC:URL ::= //$__NEW__:NETLOC$__NEW__:PATH
-$__NEW__:QUERY ::= $QUERY
-$QUERY ::= q=r
+$_SPLITNETLOC:URL ::= //$URLPARSE:NETLOC$__NEW__:PATH
+$URLSPLIT:NETLOC ::= $__NEW__:NETLOC
+$URLPARSE:QUERY ::= $URLSPLIT:QUERY
+$URLSPLIT:FRAGMENT ::= $__NEW__:FRAGMENT
+$URLSPLIT:QUERY ::= $__NEW__:QUERY
+$__NEW__:QUERY ::= q=r
 '''[1:-1]
     result = []
     for url in url_lines.split('\n'):

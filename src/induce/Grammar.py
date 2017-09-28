@@ -217,7 +217,7 @@ class Grammar(object):
         # part of input to this call.
         for var, value in self.my_params(fkey).items():
             self.add_env(var, value)
-        for var, value in collections.OrderedDict(frameenv['variables']).items():
+        for var, value in add_prefix(fname, collections.OrderedDict(frameenv['variables'])).items():
             if self.is_in_params(fkey, value):
                 self.add_env(var, value)
         if frameenv['event'] == 'return':

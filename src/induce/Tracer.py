@@ -21,7 +21,7 @@ from induce.helpers import my_copy, flatten, scrub
 # However, if there is a shadowing local variable, we should ignore
 # the global.
 
-def decorate(clazz: str, _: int, key: str) -> str:
+def decorate(clazz: str, key: str) -> str:
     """Add a class and id prefix to a variable"""
     return '%s.%s' % (clazz, key)
 
@@ -115,7 +115,7 @@ class Tracer:
         frame_env['self'] = {}
         if hasattr(vself, '__dict__') and type(vself.__dict__) == dict:
             clazz = vself.__class__.__name__
-            frame_env['self'].update([(decorate(clazz, my_id, k), v)
+            frame_env['self'].update([(decorate(clazz, k), v)
                                       for (k, v)
                                       in scrub(flatten(vself.__dict__))])
         frame_env['event'] = event
