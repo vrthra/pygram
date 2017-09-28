@@ -151,6 +151,10 @@ class Grammar(object):
     """
     Grammar inference
     """
+    TRACE_START = 1
+    TRACE_STOP = 0
+    TRACE_LINE = -1
+
     def __init__(self) -> None:
         """ Initialize grammar """
         self.grules = collections.OrderedDict() # type: collections.OrderedDict
@@ -198,11 +202,10 @@ class Grammar(object):
             if value in val: return True
         return False
 
-    def update(self, frameenv: Dict[str, Any]) -> None:
+    def trace_line(self, frameenv: Dict[str, Any]) -> None:
         """Update grammar with the frame"""
         fname = frameenv['func_name']
         fkey = '%s:%s' % (fname, frameenv['id'])
-        self.input_str = frameenv['$input']
 
         # Save the parameters when the call is made because the parameters can
         # be overwritten subsequently.
@@ -221,10 +224,26 @@ class Grammar(object):
             for var, value in get_return_value(frameenv).items():
                 self.add_env(var, value)
 
-    def reset(self) -> None:
+    def trace_start(self, frameenv: Dict[str, Any]) -> None:
+        """Save input at the start of a record"""
+        self.input_str = frameenv['$input']
+
+    def trace_stop(self) -> None:
         """ reset grammar at the end of a record"""
         new_grammar = get_grammar(self.input_str, self.environment)
         self.grules = merge_odicts(self.grules, new_grammar)
+
+    def handle_events(self, jframe: Dict[str, Any]) -> int:
+        """Calll correct events based on the frame"""
+        if jframe['event'] == 'trace_start':
+            self.trace_start(jframe)
+            return Grammar.TRACE_START
+        if jframe['event'] == 'trace_stop':
+            self.trace_stop()
+            return Grammar.TRACE_STOP
+        myframe = collections.OrderedDict(sorted(jframe.items(), key=lambda x: x[0]))
+        self.trace_line(myframe)
+        return Grammar.TRACE_LINE
 
 @contextmanager
 def grammar(hide: bool = False) -> Iterator[Any]:

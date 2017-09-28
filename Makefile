@@ -32,7 +32,7 @@ ff:;find * -not -type d -exec file '{}' ';'
 	$(env) $(python3) examples/$*.py data/$*.dat
 
 %.grammar:
-	$(env) $(python3) examples/$*.py data/$*.dat
+	$(env) $(python3) examples/$*.py data/$*.dat 3>&2 2>&1 1>&3 | $(env) $(python3) ./src/merge.py -
 
 %.json: %.js
 	cat $*.js | $(jq) '. | [ .func_name, .event, .id | tostring] | join(" ") '

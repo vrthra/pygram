@@ -26,16 +26,9 @@ $__INIT__:CONTENT ::= $IP - - [21/Feb/2014:06:35:45 +0100] "$REQUEST" 200 112 "-
         with induce.Tracer(line, result) as t:
             summary = accesslog.LogAnalyzer(line, 5)
             summary.analyze()
-    assert(len(result) == 204)
 
     with induce.grammar() as g:
-        for count, jframe in enumerate(result):
-            if len(jframe) == 0:
-                g.reset()
-            else:
-                myframe = collections.OrderedDict()
-                for k in sorted(jframe.keys()): myframe[k] = jframe[k]
-                g.update(myframe)
+        for jframe in result: g.handle_events(jframe)
         print(str(g))
         assert(grammar == str(g))
 
@@ -197,16 +190,9 @@ $__INIT__:CONTENT ::= $IP - - [21/Feb/2014:06:35:45 +0100] "$REQUEST" 200 112 "-
         with induce.Tracer(line, result) as t:
             summary = accesslog.LogAnalyzer(line, 5)
             summary.analyze()
-    assert(len(result) == 9164)
 
     with induce.grammar() as g:
-        for count, jframe in enumerate(result):
-            if len(jframe) == 0:
-                g.reset()
-            else:
-                myframe = collections.OrderedDict()
-                for k in sorted(jframe.keys()): myframe[k] = jframe[k]
-                g.update(myframe)
+        for jframe in result: g.handle_events(jframe)
         print(str(g))
         assert(grammar == str(g))
 

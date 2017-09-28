@@ -84,13 +84,8 @@ $__NEW__:FAMILY ::= $OS
             line_parser = apache_log_parser.make_parser("%h <<%P>> %t %Dus \"%r\" %>s %b  \"%{Referer}i\" \"%{User-Agent}i\" %l %u")
             log_line_data = line_parser(log)
     with induce.grammar() as g:
-        for count, jframe in enumerate(result):
-            if len(jframe) == 0:
-                g.reset()
-            else:
-                myframe = collections.OrderedDict()
-                for k in sorted(jframe.keys()): myframe[k] = jframe[k]
-                g.update(myframe)
+        for jframe in result:
+                g.handle_events(jframe)
         print(str(g))
         assert(grammar == str(g))
 
@@ -203,13 +198,8 @@ $__NEW__:PATH ::= $URLPARSE:URL
             line_parser = apache_log_parser.make_parser("%h <<%P>> %t %Dus \"%r\" %>s %b  \"%{Referer}i\" \"%{User-Agent}i\" %l %u")
             log_line_data = line_parser(log)
     with induce.grammar() as g:
-        for count, jframe in enumerate(result):
-            if len(jframe) == 0:
-                g.reset()
-            else:
-                myframe = collections.OrderedDict()
-                for k in sorted(jframe.keys()): myframe[k] = jframe[k]
-                g.update(myframe)
+        for jframe in result:
+            g.handle_events(jframe)
         print(str(g))
         assert(grammar == str(g))
 

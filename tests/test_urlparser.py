@@ -44,13 +44,8 @@ $__SETITEM__:__GETITEM___@ ::= $<LISTCOMP>:__GETITEM___@
         with induce.Tracer(url, result) as t:
             urlparser.urlparse(url)
     with induce.grammar() as g:
-        for count, jframe in enumerate(result):
-            if len(jframe) == 0:
-                g.reset()
-            else:
-                myframe = collections.OrderedDict()
-                for k in sorted(jframe.keys()): myframe[k] = jframe[k]
-                g.update(myframe)
+        for jframe in result:
+            g.handle_events(jframe)
         print(str(g))
         assert(grammar == str(g))
 
@@ -106,13 +101,8 @@ $__SETITEM__:__GETITEM___@ ::= $<LISTCOMP>:__GETITEM___@
         with induce.Tracer(url, result) as t:
             urlparser.urlparse(url)
     with induce.grammar() as g:
-        for count, jframe in enumerate(result):
-            if len(jframe) == 0:
-                g.reset()
-            else:
-                myframe = collections.OrderedDict()
-                for k in sorted(jframe.keys()): myframe[k] = jframe[k]
-                g.update(myframe)
+        for jframe in result:
+            g.handle_events(jframe)
         print(str(g))
         assert(grammar == str(g))
 

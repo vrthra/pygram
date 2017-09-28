@@ -35,13 +35,14 @@ class Tracer:
 
     def __enter__(self) -> None:
         """ set hook """
+        self.out({'event': 'trace_start', '$input': self.indata})
         sys.settrace(self.method)
 
     def __exit__(self, typ: str, value: str, backtrace: Any) -> None:
         """ unhook """
         sys.settrace(None)
         # print an empty record to indicate one full invocation.
-        self.out({})
+        self.out({'event': 'trace_stop'})
 
     def out(self, val: Dict[str, Any]) -> None:
         """Handle data output either as print or as json string"""
@@ -120,6 +121,5 @@ class Tracer:
         frame_env['arg'] = dict(scrub(flatten({'@': arg})))
         frame_env['code'] = loc['code']
         frame_env['kind'] = loc['kind']
-        frame_env['$input'] = self.indata
 
         self.out(frame_env)

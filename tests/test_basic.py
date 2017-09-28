@@ -34,10 +34,7 @@ def helper(data):
         parts = basic_parse(data)
     with induce.grammar(True) as g:
         for jframe in out:
-            if len(jframe) == 0:
-                g.reset()
-            else:
-                g.update(jframe)
+            g.handle_events(jframe)
         grammar = str(g)
     return(parts, out, grammar)
 
@@ -200,10 +197,7 @@ $TOK ::= 2110
             parts = basic_parse(l)
     with induce.grammar(True) as g:
         for jframe in out:
-            if len(jframe) == 0:
-                g.reset()
-            else:
-                g.update(jframe)
+            g.handle_events(jframe)
         gout = str(g)
     print(gout)
     assert(grammar == gout)

@@ -22,16 +22,10 @@ $__NEW__:SCHEME ::= http
     for url in url_lines.split('\n'):
         with induce.Tracer(url, result) as t:
             urlparse(url)
-    assert(len(result) == 78)
 
     with induce.grammar() as g:
-        for count, jframe in enumerate(result):
-            if len(jframe) == 0:
-                g.reset()
-            else:
-                myframe = collections.OrderedDict()
-                for k in sorted(jframe.keys()): myframe[k] = jframe[k]
-                g.update(myframe)
+        for jframe in result:
+            g.handle_events(jframe)
         print(str(g))
         assert(grammar == str(g))
 
@@ -66,13 +60,8 @@ $__NEW__:SCHEME ::= http
             urlparse(url)
 
     with induce.grammar() as g:
-        for count, jframe in enumerate(result):
-            if len(jframe) == 0:
-                g.reset()
-            else:
-                myframe = collections.OrderedDict()
-                for k in sorted(jframe.keys()): myframe[k] = jframe[k]
-                g.update(myframe)
+        for jframe in result:
+            g.handle_events(jframe)
         print(str(g))
         assert(grammar == str(g))
 
