@@ -105,8 +105,8 @@ class Tracer:
         my_parameters = {k:v for k, v in my_locals_cpy.items() if k in param_names}
         my_locals = {k:v for k, v in my_locals_cpy.items() if k not in param_names}
 
-        frame_env['variables'] = dict(scrub(flatten(my_locals)))
-        frame_env['parameters'] = dict(scrub(flatten(my_parameters)))
+        frame_env['variables'] = scrub(flatten(my_locals))
+        frame_env['parameters'] = scrub(flatten(my_parameters))
 
         # TODO: At some point, we should remove special casing
         # self. It is just another object found as the first parameter
@@ -115,10 +115,11 @@ class Tracer:
         frame_env['self'] = {}
         if hasattr(vself, '__dict__') and type(vself.__dict__) == dict:
             clazz = vself.__class__.__name__
-            frame_env['self'].update({decorate(clazz, my_id, k):v for (k, v) in
-                                      scrub(flatten(vself.__dict__))})
+            frame_env['self'].update([(decorate(clazz, my_id, k), v)
+                                      for (k, v)
+                                      in scrub(flatten(vself.__dict__))])
         frame_env['event'] = event
-        frame_env['arg'] = dict(scrub(flatten({'@': arg})))
+        frame_env['arg'] = scrub(flatten({'@': arg}))
         frame_env['code'] = loc['code']
         frame_env['kind'] = loc['kind']
 

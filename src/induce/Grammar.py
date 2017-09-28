@@ -21,7 +21,7 @@ def non_trivial_val(val: str) -> bool:
     """ Is the variable temporary? """
     return len(val) >= 2
 
-def non_trivial_envdict(myvar: Dict[str, str]) -> collections.OrderedDict:
+def non_trivial_envdict(myvar: collections.OrderedDict) -> collections.OrderedDict:
     """
     Removes small and temporary variables -- those that
     have name length under a certain value or those that
@@ -45,7 +45,7 @@ def grammar_lst(rules: collections.OrderedDict) -> List[str]:
     """
     Convert a given set of rules to their string representation
     """
-    return sorted(["%s ::= %s" % (key, djs_to_string(rules[key])) for key in rules.keys()])
+    return ["%s ::= %s" % (key, djs_to_string(rules[key])) for key in rules.keys()]
 
 def nonterm(var: str) -> str:
     """Produce a Non Terminal symbol"""
@@ -81,7 +81,7 @@ def get_return_value(frameenv: Dict[str, Any]) -> collections.OrderedDict:
     Flatten and set the return value as caller:callee rules
     """
     my_rv = collections.OrderedDict() # type: collections.OrderedDict
-    return_value = frameenv['arg']
+    return_value = collections.OrderedDict(frameenv['arg'])
     # return_value will be a flattened dict
     if return_value:
         r_name = "%s:%s" % (frameenv['caller_name'], frameenv['func_name'])
@@ -183,9 +183,9 @@ class Grammar(object):
         """
         Save the current state of parameters for input rules to a function
         """
-        params = add_prefix(fname, frameenv['parameters'])
+        params = add_prefix(fname, collections.OrderedDict(frameenv['parameters']))
         # will not shadow because the format is cname.attr
-        params.update(non_trivial_envdict(frameenv['self']))
+        params.update(non_trivial_envdict(collections.OrderedDict(frameenv['self'])))
         # save only those parameters that are relevant (i.e present in the main input)
         self.my_parameters[fkey] = collections.OrderedDict(
             [(key, val) for key, val in params.items() if val in self.input_str])
@@ -217,7 +217,7 @@ class Grammar(object):
         # part of input to this call.
         for var, value in self.my_params(fkey).items():
             self.add_env(var, value)
-        for var, value in frameenv['variables'].items():
+        for var, value in collections.OrderedDict(frameenv['variables']).items():
             if self.is_in_params(fkey, value):
                 self.add_env(var, value)
         if frameenv['event'] == 'return':

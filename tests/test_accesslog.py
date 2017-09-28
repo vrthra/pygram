@@ -11,15 +11,15 @@ def test_accesslog1():
 1.1.1.1 - - [21/Feb/2014:06:35:45 +0100] "GET /robots.txt HTTP/1.1" 200 112 "-" "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
 '''[1:-1]
     grammar = '''
-$COL.IP ::= 1.1.1.1
-$COL.REQUEST ::= GET /robots.txt HTTP/1.1
-$COL.USERAGENT ::= Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)
-$FIND_CHARS:STRING ::= $__INIT__:CONTENT
-$IP ::= $COL.IP
-$REQUEST ::= $COL.REQUEST
 $START ::= $FIND_CHARS:STRING
-$USERAGENT ::= $COL.USERAGENT
+$FIND_CHARS:STRING ::= $__INIT__:CONTENT
 $__INIT__:CONTENT ::= $IP - - [21/Feb/2014:06:35:45 +0100] "$REQUEST" 200 112 "-" "$USERAGENT"
+$USERAGENT ::= $COL.USERAGENT
+$REQUEST ::= $COL.REQUEST
+$IP ::= $COL.IP
+$COL.USERAGENT ::= Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)
+$COL.REQUEST ::= GET /robots.txt HTTP/1.1
+$COL.IP ::= 1.1.1.1
 '''[1:-1]
     result = []
     for line in content_lines.split('\n'):
@@ -93,42 +93,8 @@ def test_accesslog2():
 5.5.5.5 - - [22/Feb/2014:06:29:47 +0100] "GET /feed/atom.xml HTTP/1.1" 304 0 "-" "Motorola"
 '''[1:-1]
     grammar = '''
-$COL.IP ::= 1.1.1.1
-	| 10.10.10.10
-	| 2.2.2.2
-	| 3.3.3.3
-	| 4.4.4.4
-	| 5.5.5.5
-	| 6.6.6.6
-	| 7.7.7.7
-	| 8.8.8.8
-	| 9.9.9.9
-$COL.REQUEST ::= GET / HTTP/1.1
-	| GET /about.php HTTP/1.1
-	| GET /blog.css HTTP/1.1
-	| GET /feed/atom.xml HTTP/1.1
-	| GET /how-to-setup.php HTTP/1.1
-	| GET /main HTTP/1.1
-	| GET /main.php HTTP/1.1
-	| GET /main/rss HTTP/1.1
-	| GET /phpMyAdmin/scripts/setup.php HTTP/1.1
-	| GET /pma/scripts/setup.php HTTP/1.1
-	| GET /robots.txt HTTP/1.1
-	| GET /tag/nginx.php HTTP/1.1
-	| GET /tag/php.php HTTP/1.1
-	| GET /tag/tor.php HTTP/1.1
-$COL.USERAGENT ::= Motorola
-	| Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; Q312461)
-	| Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/33.0.1750.117
-	| Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)
-$FIND_CHARS:STRING ::= $__INIT__:CONTENT
-$IP ::= $COL.IP
-$LINE ::= $IP - - [21/Feb/2014:08:51:34 +0100] "-" 400 0 "-" "-"
-	| $IP - - [21/Feb/2014:09:18:40 +0100] "-" 400 0 "-" "-"
-	| $IP - - [21/Feb/2014:09:21:29 +0100] "-" 400 0 "-" "-"
-$REQUEST ::= $COL.REQUEST
 $START ::= $FIND_CHARS:STRING
-$USERAGENT ::= $COL.USERAGENT
+$FIND_CHARS:STRING ::= $__INIT__:CONTENT
 $__INIT__:CONTENT ::= $IP - - [21/Feb/2014:06:35:45 +0100] "$REQUEST" 200 112 "-" "$USERAGENT"
 	| $IP - - [21/Feb/2014:06:35:45 +0100] "$REQUEST" 200 3663 "-" "$USERAGENT"
 	| $IP - - [21/Feb/2014:06:52:04 +0100] "$REQUEST" 301 178 "-" "$USERAGENT"
@@ -184,6 +150,40 @@ $__INIT__:CONTENT ::= $IP - - [21/Feb/2014:06:35:45 +0100] "$REQUEST" 200 112 "-
 	| $IP - - [22/Feb/2014:06:29:47 +0100] "$REQUEST" 301 178 "-" "$USERAGENT"
 	| $IP - - [22/Feb/2014:06:29:47 +0100] "$REQUEST" 304 0 "-" "$USERAGENT"
 	| $LINE
+$USERAGENT ::= $COL.USERAGENT
+$REQUEST ::= $COL.REQUEST
+$IP ::= $COL.IP
+$COL.USERAGENT ::= Motorola
+	| Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; Q312461)
+	| Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/33.0.1750.117
+	| Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)
+$COL.REQUEST ::= GET / HTTP/1.1
+	| GET /about.php HTTP/1.1
+	| GET /blog.css HTTP/1.1
+	| GET /feed/atom.xml HTTP/1.1
+	| GET /how-to-setup.php HTTP/1.1
+	| GET /main HTTP/1.1
+	| GET /main.php HTTP/1.1
+	| GET /main/rss HTTP/1.1
+	| GET /phpMyAdmin/scripts/setup.php HTTP/1.1
+	| GET /pma/scripts/setup.php HTTP/1.1
+	| GET /robots.txt HTTP/1.1
+	| GET /tag/nginx.php HTTP/1.1
+	| GET /tag/php.php HTTP/1.1
+	| GET /tag/tor.php HTTP/1.1
+$COL.IP ::= 1.1.1.1
+	| 10.10.10.10
+	| 2.2.2.2
+	| 3.3.3.3
+	| 4.4.4.4
+	| 5.5.5.5
+	| 6.6.6.6
+	| 7.7.7.7
+	| 8.8.8.8
+	| 9.9.9.9
+$LINE ::= $IP - - [21/Feb/2014:08:51:34 +0100] "-" 400 0 "-" "-"
+	| $IP - - [21/Feb/2014:09:18:40 +0100] "-" 400 0 "-" "-"
+	| $IP - - [21/Feb/2014:09:21:29 +0100] "-" 400 0 "-" "-"
 '''[1:-1]
     result = []
     for line in content_lines.split('\n'):

@@ -10,13 +10,13 @@ def test_urlparse1():
 http://www.st.cs.uni-saarland.de/zeller#ref
 '''[1:-1]
     grammar = '''
-$FRAGMENT ::= ref
-$NETLOC ::= www.st.cs.uni-saarland.de
 $START ::= $__NEW__:SCHEME://$__NEW__:NETLOC$__NEW__:PATH#$__NEW__:FRAGMENT
 $__NEW__:FRAGMENT ::= $FRAGMENT
 $__NEW__:NETLOC ::= $NETLOC
-$__NEW__:PATH ::= /zeller
 $__NEW__:SCHEME ::= http
+$__NEW__:PATH ::= /zeller
+$FRAGMENT ::= ref
+$NETLOC ::= www.st.cs.uni-saarland.de
 '''[1:-1]
     result = []
     for url in url_lines.split('\n'):
@@ -36,23 +36,23 @@ https://www.cispa.saarland:80/bar
 http://foo@google.com:8080/bar?q=r#ref2
 '''[1:-1]
     grammar = '''
+$START ::= $__NEW__:SCHEME:$_SPLITNETLOC:URL
+	| $__NEW__:SCHEME://$__NEW__:NETLOC$__NEW__:PATH#$__NEW__:FRAGMENT
+	| $__NEW__:SCHEME://$__NEW__:NETLOC$__NEW__:PATH?$__NEW__:QUERY#$__NEW__:FRAGMENT
+$__NEW__:FRAGMENT ::= $FRAGMENT
+$__NEW__:NETLOC ::= $NETLOC
+$__NEW__:SCHEME ::= http
+	| https
+$__NEW__:PATH ::= /bar
+	| /zeller
 $FRAGMENT ::= ref
 	| ref2
 $NETLOC ::= foo@google.com:8080
 	| www.cispa.saarland:80
 	| www.st.cs.uni-saarland.de
-$QUERY ::= q=r
-$START ::= $__NEW__:SCHEME:$_SPLITNETLOC:URL
-	| $__NEW__:SCHEME://$__NEW__:NETLOC$__NEW__:PATH#$__NEW__:FRAGMENT
-	| $__NEW__:SCHEME://$__NEW__:NETLOC$__NEW__:PATH?$__NEW__:QUERY#$__NEW__:FRAGMENT
 $_SPLITNETLOC:URL ::= //$__NEW__:NETLOC$__NEW__:PATH
-$__NEW__:FRAGMENT ::= $FRAGMENT
-$__NEW__:NETLOC ::= $NETLOC
-$__NEW__:PATH ::= /bar
-	| /zeller
 $__NEW__:QUERY ::= $QUERY
-$__NEW__:SCHEME ::= http
-	| https
+$QUERY ::= q=r
 '''[1:-1]
     result = []
     for url in url_lines.split('\n'):

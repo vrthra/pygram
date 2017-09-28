@@ -38,7 +38,7 @@ def slurplstriparg() -> List[str]:
 
 def scrub(obj: List[Tuple[str, Any]]) -> List[Tuple[str, str]]:
     """ Remove everything except strings from a flattened datastructure. """
-    return [(k, v) for k, v in obj if isinstance(v, str)]
+    return sorted([(k, v) for k, v in obj if isinstance(v, str)], key=lambda x: x[0])
 
 def expand(key: str, value: Any, lvl: int) -> List[Tuple[str, str]]:
     """ Expand one level."""

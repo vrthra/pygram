@@ -47,4 +47,7 @@ typecheck:
 
 pytestflags=-vv
 test:
-	$(env) $(pytest) $(pytestflags)
+	$(env) $(pytest) $(pytestflags) $(T)
+
+utest:
+	$(env) $(pytest) $(pytestflags) $(T) -k $(F)

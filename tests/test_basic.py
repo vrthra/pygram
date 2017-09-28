@@ -44,10 +44,10 @@ CS 2110
 '''[1:-1]
     result = [[('CS', '2110')]]
     grammar = '''
-$BASIC_PARSE:ASTR ::= $DEPT $NUMBER
-$DEPT ::= $TOK
-$NUMBER ::= $TOK
 $START ::= $BASIC_PARSE:ASTR
+$BASIC_PARSE:ASTR ::= $DEPT $NUMBER
+$NUMBER ::= $TOK
+$DEPT ::= $TOK
 $TOK ::= 2110
 	| CS
 '''[1:-1]
@@ -62,10 +62,10 @@ CS 2110 and INFO 3300
 '''[1:-1]
     result = [[('CS', '2110'), ('INFO', '3300')]]
     grammar = '''
-$BASIC_PARSE:ASTR ::= $DEPT $NUMBER and $DEPT $NUMBER
-$DEPT ::= $TOK
-$NUMBER ::= $TOK
 $START ::= $BASIC_PARSE:ASTR
+$BASIC_PARSE:ASTR ::= $DEPT $NUMBER and $DEPT $NUMBER
+$NUMBER ::= $TOK
+$DEPT ::= $TOK
 $TOK ::= 2110
 	| 3300
 	| CS
@@ -82,10 +82,10 @@ CS 2110, INFO 3300
 '''[1:-1]
     result = [[('CS', '2110'), ('INFO', '3300')]]
     grammar = '''
-$BASIC_PARSE:ASTR ::= $DEPT $NUMBER, $DEPT $NUMBER
-$DEPT ::= $TOK
-$NUMBER ::= $TOK
 $START ::= $BASIC_PARSE:ASTR
+$BASIC_PARSE:ASTR ::= $DEPT $NUMBER, $DEPT $NUMBER
+$NUMBER ::= $TOK
+$DEPT ::= $TOK
 $TOK ::= 2110
 	| 3300
 	| CS
@@ -102,10 +102,10 @@ CS 2110, 3300, 3140
 '''[1:-1]
     result = [[('CS', '2110'), ('CS', '3300'), ('CS', '3140')]]
     grammar = '''
-$BASIC_PARSE:ASTR ::= $DEPT $NUMBER, $NUMBER, $NUMBER
-$DEPT ::= $TOK
-$NUMBER ::= $TOK
 $START ::= $BASIC_PARSE:ASTR
+$BASIC_PARSE:ASTR ::= $DEPT $NUMBER, $NUMBER, $NUMBER
+$NUMBER ::= $TOK
+$DEPT ::= $TOK
 $TOK ::= 2110
 	| 3140
 	| 3300
@@ -122,12 +122,12 @@ CS 2110 or INFO 3300
 '''[1:-1]
     result = [[('CS', '2110')], [('INFO', '3300')]]
     grammar = '''
+$START ::= $BASIC_PARSE:ASTR
 $BASIC_PARSE:ASTR ::= $DEPT $NUMBER $TOK $DEPT $NUMBER
-$DEPT ::= CS
-	| INFO
 $NUMBER ::= 2110
 	| 3300
-$START ::= $BASIC_PARSE:ASTR
+$DEPT ::= CS
+	| INFO
 $TOK ::= or
 '''[1:-1]
     parts, out, g = helper(data)
@@ -140,13 +140,13 @@ MATH 2210, 2230, 2310, or 2940
 '''[1:-1]
     result =   [[('MATH', '2210'), ('MATH', '2230'), ('MATH', '2310')], [('MATH', '2940')]]
     grammar = '''
+$START ::= $BASIC_PARSE:ASTR
 $BASIC_PARSE:ASTR ::= $DEPT $NUMBER, $NUMBER, $NUMBER, $TOK $NUMBER
-$DEPT ::= MATH
 $NUMBER ::= 2210
 	| 2230
 	| 2310
 	| 2940
-$START ::= $BASIC_PARSE:ASTR
+$DEPT ::= MATH
 $TOK ::= or
 '''[1:-1]
     parts, out, g = helper(data)
@@ -163,16 +163,13 @@ CS 2110 or INFO 3300
 MATH 2210, 2230, 2310, or 2940
 '''[1:-1]
     grammar = '''
+$START ::= $BASIC_PARSE:ASTR
 $BASIC_PARSE:ASTR ::= $DEPT $NUMBER
 	| $DEPT $NUMBER $TOK $DEPT $NUMBER
 	| $DEPT $NUMBER and $DEPT $NUMBER
 	| $DEPT $NUMBER, $DEPT $NUMBER
 	| $DEPT $NUMBER, $NUMBER, $NUMBER
 	| $DEPT $NUMBER, $NUMBER, $NUMBER, $TOK $NUMBER
-$DEPT ::= $TOK
-	| CS
-	| INFO
-	| MATH
 $NUMBER ::= $TOK
 	| 2110
 	| 2210
@@ -180,7 +177,10 @@ $NUMBER ::= $TOK
 	| 2310
 	| 2940
 	| 3300
-$START ::= $BASIC_PARSE:ASTR
+$DEPT ::= $TOK
+	| CS
+	| INFO
+	| MATH
 $TOK ::= 2110
 	| 3140
 	| 3300
