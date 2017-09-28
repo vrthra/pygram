@@ -132,10 +132,18 @@ def get_grammar(my_input: str, local_env: collections.OrderedDict) -> collection
             for envval in envval_djs:
                 present_in_input = False
                 for key, alternatives in grules.items():
+                    # TODO: We need to be more intelligent here in matching.
+                    # ideally, we should only look for matching rules
+                    # after comparing the class.function name.
+                    # the reason is that, the values from an environment
+                    # disjunction is only relevant/extracted from the parameters
+                    # of the current invocation of the particular function.
+                    # That is, we should never replace the environment value
+                    # from one function in the rule from parameters of another.
+                    # doing so, risks collission.
                     matched = [i for i in alternatives if envval in i]
                     if matched: present_in_input = True
                     for mat in matched:
-                        # careful here TODO.
                         alternatives.replace(mat, mat.replace(envval, nonterm(envvar)))
                 if present_in_input: new_rules.setdefault(envvar, OrderedSet()).add(envval)
 

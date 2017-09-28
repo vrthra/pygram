@@ -15,7 +15,9 @@ commithooks:; echo make lint > .git/hooks/pre-commit; chmod +x .git/hooks/pre-co
 
 $(CONFIG): src/defaultconfig.py; cat src/defaultconfig.py > config.py
 
-nopyc:; find . -name \*.pyc | xargs rm
+nopyc:
+	find . -name \*.pyc -delete
+	find . -name __pycache__ -delete
 
 ff:;find * -not -type d -exec file '{}' ';'
 
