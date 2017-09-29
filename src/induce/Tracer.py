@@ -9,6 +9,8 @@ import json
 import linecache
 import ast
 
+import config as cfg
+
 from induce.helpers import my_copy, flatten, scrub
 # pylint: disable=multiple-statements,fixme, unidiomatic-typecheck, line-too-long
 
@@ -64,12 +66,13 @@ class Tracer:
             (cname, cfile, cline) = loc(frame.f_back)
             code = linecache.getline(mfile, mline)
             kind = 'unknown'
-            try:
-                mymod = ast.parse(code.strip())
-                if isinstance(mymod, ast.Module) and mymod.body:
-                    if len(mymod.body) == 1:
-                        kind = " ".join([ast.dump(child) for child in mymod.body])
-            except SyntaxError: pass
+            if cfg.include_ast:
+                try:
+                    mymod = ast.parse(code.strip())
+                    if isinstance(mymod, ast.Module) and mymod.body:
+                        if len(mymod.body) == 1:
+                            kind = " ".join([ast.dump(child) for child in mymod.body])
+                except SyntaxError: pass
 
             self.process_frame(frame,
                                {'name':mname, 'file':mfile, 'line': str(mline),
