@@ -8,6 +8,7 @@ import collections
 import json
 import linecache
 import ast
+import inspect
 
 from induce.helpers import my_copy, flatten, scrub
 # pylint: disable=multiple-statements,fixme, unidiomatic-typecheck, line-too-long
@@ -28,6 +29,9 @@ def decorate(clazz: str, key: str) -> str:
 
 class Tracer:
     """ The context manager that manages trace hooking and unhooking. """
+
+    class_cache = {} # type: Dict[Any, str]
+
     def __init__(self, in_data: str, out_data: Optional[List[Dict[str, Any]]] = None) -> None:
         self.method = self.tracer()
         self.indata = in_data
@@ -96,12 +100,12 @@ class Tracer:
 
         my_id = frame.__hash__()
         frame_env['id'] = my_id
-        frame_env['func_name'] = loc['name']
-        frame_env['caller_name'] = loc['cname']
+        frame_env['func_name'] = Tracer.get_qualified_name(frame)
+        frame_env['caller_name'] = Tracer.get_qualified_name(frame.f_back)
 
         my_locals_cpy = my_copy(frame.f_locals)
         param_names = [frame.f_code.co_varnames[i] for i in range(frame.f_code.co_argcount)]
-        # split parameters and locals
+        # split parameters and locals. The parameters include varargs and kwargs
         my_parameters = {k:v for k, v in my_locals_cpy.items() if k in param_names}
         my_locals = {k:v for k, v in my_locals_cpy.items() if k not in param_names}
 
@@ -113,6 +117,7 @@ class Tracer:
         # should be assigned to as self[clazz_name+obj_id].member = value
         # and other objects should be varname[clazz_name+obj_id].member = value
         frame_env['self'] = []
+        # The class of self may differ from get_class().
         if hasattr(vself, '__dict__') and type(vself.__dict__) == dict:
             clazz = vself.__class__.__name__
             frame_env['self'] = [(decorate(clazz, k), v)
@@ -122,5 +127,48 @@ class Tracer:
         frame_env['arg'] = scrub(flatten({'@': arg}))
         frame_env['code'] = loc['code']
         frame_env['kind'] = loc['kind']
+        frame_env['loc'] = loc
 
         self.out(frame_env)
+
+    @classmethod
+    def set_cache(cls, code: Any, clazz: str) -> str:
+        """ Set the global class cache """
+        cls.class_cache[code] = clazz
+        return clazz
+
+    @classmethod
+    def get_class(cls, frame: Any) -> Optional[str]:
+        """ Set the class name"""
+        code = frame.f_code
+        name = code.co_name
+        if cls.class_cache.get(code): return cls.class_cache[code]
+        args, _, _, local_dict = inspect.getargvalues(frame)
+        class_name = ''
+
+        if name == '__new__': # also for all class methods
+            class_name = local_dict[args[0]].__name__
+            return class_name
+        try:
+            class_name = local_dict['self'].__class__.__name__
+            if class_name: return class_name
+        except (KeyError, AttributeError): pass
+
+        # investigate __qualname__ for class objects.
+        for objname, obj in frame.f_globals.items():
+            try:
+                if obj.__dict__[name].__code__ is code: return cls.set_cache(code, objname)
+            except (KeyError, AttributeError): pass
+            try:
+                if obj.__slot__[name].__code__ is code: return cls.set_cache(code, objname)
+            except (KeyError, AttributeError): pass
+        return "@"
+
+    @classmethod
+    def get_qualified_name(cls, frame: Any) -> str:
+        """ Set the qualified method name"""
+        code = frame.f_code
+        name = code.co_name # type: str
+        clazz = cls.get_class(frame)
+        if clazz: return '%s.%s' % (clazz, name)
+        return name
