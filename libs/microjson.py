@@ -6,7 +6,7 @@
 
 # std
 import math
-import StringIO
+import io
 import types
 
 
@@ -19,7 +19,7 @@ DIGITS = set([str(i) for i in range(0, 10)])
 NUMSTART = DIGITS.union(['.','-','+'])
 NUMCHARS = NUMSTART.union(['e','E'])
 ESC_MAP = {'n':'\n','t':'\t','r':'\r','b':'\b','f':'\f'}
-REV_ESC_MAP = dict([(_v,_k) for _k,_v in ESC_MAP.items()] + [('"','"')])
+REV_ESC_MAP = dict([(_v,_k) for _k,_v in list(ESC_MAP.items())] + [('"','"')])
 
 # error messages
 E_BYTES = 'input string must be type str containing ASCII or UTF-8 bytes'
@@ -53,15 +53,15 @@ class JSONStream(object):
     # underlying stream.
 
     def __init__(self, data):
-        self._stm = StringIO.StringIO(data)
+        self._stm = io.StringIO(data)
 
     @property
     def pos(self):
-        return self._stm.pos
+        return self._stm.tell()
 
     @property
     def len(self):
-        return self._stm.len
+        return len(self._stm.getvalue())
 
     def getvalue(self):
         return self._stm.getvalue()
@@ -81,7 +81,7 @@ class JSONStream(object):
         return self._stm.read(size)
 
     def next_ord(self):
-        return ord(self.next())
+        return ord(next(self))
 
     def peek(self):
         if self.pos == self.len:
@@ -109,7 +109,7 @@ def _decode_utf8(c0, stm):
     elif (c0 & 0xF8) == 0xF0:
         r = ((c0 & 0x07) << 18) + ((nc() & 0x3F) << 12) + \
             ((nc() & 0x3F) << 6) + (nc() & 0x3F)
-    return unichr(r)
+    return chr(r)
 
 
 def decode_escape(c, stm):
@@ -128,7 +128,7 @@ def decode_escape(c, stm):
     for _ in range(0, 4):
         r |= int(stm.next(), 16) << sv
         sv -= 4
-    return unichr(r)
+    return chr(r)
 
 
 def _from_json_string(stm):
@@ -182,7 +182,7 @@ def _from_json_number(stm):
     s = stm.substr(pos, stm.pos - pos)
     if is_float:
         return float(s)
-    return long(s)
+    return int(s)
 
 
 def _from_json_list(stm):
@@ -320,12 +320,12 @@ def _to_json_string(stm, buf):
 def _to_json_dict(stm, dct):
     seen = 0
     stm.write('{')
-    for key in dct.keys():
+    for key in list(dct.keys()):
         if seen:
             stm.write(',')
         seen = 1
         val = dct[key]
-        if not type(key) in (types.StringType, types.UnicodeType):
+        if not type(key) in (bytes, str):
             key = str(key)
         _to_json_string(stm, key)
         stm.write(':')
@@ -334,23 +334,23 @@ def _to_json_dict(stm, dct):
 
 
 def _to_json_object(stm, obj):
-    if isinstance(obj, (types.ListType, types.TupleType)):
+    if isinstance(obj, (list, tuple)):
         _to_json_list(stm, obj)
-    elif isinstance(obj, types.BooleanType):
+    elif isinstance(obj, bool):
         if obj:
             stm.write('true')
         else:
             stm.write('false')
-    elif isinstance(obj, types.FloatType):
+    elif isinstance(obj, float):
         # this raises an error for NaN, -inf and inf values
         if not (NEG_INF < obj < POS_INF):
             raise JSONError(E_BADFLOAT % obj)
         stm.write("%s" % obj)
-    elif isinstance(obj, (types.IntType, types.LongType)):
+    elif isinstance(obj, int):
         stm.write("%d" % obj)
-    elif isinstance(obj, types.NoneType):
+    elif isinstance(obj, type(None)):
         stm.write('null')
-    elif isinstance(obj, (types.StringType, types.UnicodeType)):
+    elif isinstance(obj, (bytes, str)):
         _to_json_string(stm, obj)
     elif hasattr(obj, 'keys') and hasattr(obj, '__getitem__'):
         _to_json_dict(stm, obj)
@@ -367,7 +367,7 @@ def to_json(obj):
     """
     Converts 'obj' to an ASCII JSON string representation.
     """
-    stm = StringIO.StringIO('')
+    stm = io.StringIO('')
     _to_json_object(stm, obj)
     return stm.getvalue()
 
