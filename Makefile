@@ -18,6 +18,8 @@ $(CONFIG): src/defaultconfig.py; cat src/defaultconfig.py > config.py
 nopyc:
 	find . -name \*.pyc -delete
 	find . -name __pycache__ -delete
+	rm -rf .mypy_cache/
+	rm -rf .cache
 
 ff:;find * -not -type d -exec file '{}' ';'
 
