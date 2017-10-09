@@ -10,6 +10,7 @@ import json
 import inspect
 
 from induce.helpers import my_copy, flatten, scrub, decorate
+import induce.TEvents
 
 # pylint: disable=multiple-statements,fixme, unidiomatic-typecheck
 # pylint: line-too-long
@@ -24,11 +25,6 @@ class Tracer:
     """
     Tracer class for tracing the execution of functions and their parameters
     """
-    Start = '>>'
-    Enter = '>'
-    Exit = '<'
-    Line = '-'
-    Stop = '<<'
     class_cache = {}  # type: Dict[Any, str]
 
     def __init__(self,
@@ -41,14 +37,14 @@ class Tracer:
 
     def __enter__(self) -> None:
         """ set hook """
-        event = [('event', Tracer.Start), ('$input', self.indata)]
+        event = [('event', induce.TEvents.Start), ('$input', self.indata)]
         self.out(collections.OrderedDict(event))
         sys.settrace(self.method)
 
     def __exit__(self, typ: str, value: str, backtrace: Any) -> None:
         """ unhook """
         sys.settrace(None)
-        self.out({'event': Tracer.Stop})
+        self.out({'event': induce.TEvents.Stop})
 
     def out(self, val: Dict[str, Any]) -> None:
         """Handle data output either as print or as json string"""
@@ -79,7 +75,7 @@ class Tracer:
         Handle event method call
         """
         frame_env = collections.OrderedDict()  # type: collections.OrderedDict
-        frame_env['event'] = Tracer.Enter
+        frame_env['event'] = induce.TEvents.Enter
         frame_env['stack'] = Tracer.get_stack(frame)
 
         my_locals_cpy = my_copy(frame.f_locals)
@@ -114,7 +110,7 @@ class Tracer:
         Handle event method return
         """
         frame_env = collections.OrderedDict()  # type: collections.OrderedDict
-        frame_env['event'] = Tracer.Exit
+        frame_env['event'] = induce.TEvents.Exit
         frame_env['arg'] = scrub(flatten({'<return>': arg}))
         self.myvars_stack.pop()
         return frame_env
@@ -125,7 +121,7 @@ class Tracer:
         Handle event line (execution of a single statement)
         """
         frame_env = collections.OrderedDict()  # type: collections.OrderedDict
-        frame_env['event'] = Tracer.Line
+        frame_env['event'] = induce.TEvents.Line
 
         frame_env['variables'] = []
 
