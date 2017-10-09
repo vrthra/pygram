@@ -43,8 +43,8 @@ def scrub(obj: List[Tuple[str, Any]]) -> List[Tuple[str, str]]:
 def expand(key: str, value: Any, lvl: int) -> List[Tuple[str, str]]:
     """ Expand one level."""
     if lvl <= 0: return [(key, value)]
-    if type(value) in [dict, list]:
-        return [("%s.%s" % (key, k), v) for k, v in flatten(value, lvl-1)]
+    if type(value) in [dict, list, tuple]:
+        return [(decorate(key, k), v) for k, v in flatten(value, lvl-1)]
     return [(key, value)]
 
 def flatten(val: Any, lvl: int = MAX_COPY) -> Any:
@@ -54,12 +54,18 @@ def flatten(val: Any, lvl: int = MAX_COPY) -> Any:
     """
     if type(val) == dict: return flatten_dict(val, lvl)
     elif type(val) == list: return flatten_list(val, lvl)
+    elif type(val) == tuple: return flatten_tuple(val, lvl)
     return val
 
 def flatten_dict(vals: Dict[(str, Any)], lvl: int) -> List[Any]:
     """ Make a nested dict into a flattened list."""
     return [i for key, val in vals.items()
             for i in expand(key, val, lvl)]
+
+def flatten_tuple(vals: Tuple, lvl: int) -> List[Any]:
+    """Make a nested list into a flattened list."""
+    return [i for key, val in enumerate(vals)
+            for i in expand(str(key), val, lvl)]
 
 def flatten_list(vals: List[Any], lvl: int) -> List[Any]:
     """Make a nested list into a flattened list."""
@@ -107,3 +113,7 @@ def my_copy(inds: Any, lvl: int = MAX_COPY) -> Any:
         return None
     except (KeyError, IndexError): # See the violation of dict guarantee
         return None
+
+def decorate(stem: str, key: str, sep: str = '.') -> str:
+    """Prepend a prefix to key"""
+    return '%s%s%s' % (stem, sep, key)

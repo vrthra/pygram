@@ -1,24 +1,28 @@
 import induce
 import collections
 
-def basic_parse(astr):
-    astr=astr.replace(',','')
-    astr=astr.replace('and','')
-    tokens=astr.split()
-    dept=None
-    number=None
-    result=[]
-    option=[]
+def lexical_split(mystr):
+    ltoks = mystr.split()
+    return ltoks
+
+def basic_parse(start):
+    astr = start.replace(',','')
+    astr = astr.replace('and','')
+    tokens = lexical_split(astr)
+    dept = None
+    number = None
+    result = []
+    option = []
     for tok in tokens:
-        if tok=='or':
+        if tok == 'or':
             result.append(option)
-            option=[]
+            option = []
             continue
         if tok.isalpha():
-            dept=tok
-            number=None
+            dept = tok
+            number = None
         else:
-            number=tok
+            number = tok
         if dept and number:
             option.append((dept,number))
     else:
@@ -27,5 +31,6 @@ def basic_parse(astr):
     return result
 
 for line in induce.helpers.slurplarg():
+    if not line.strip(): continue
     with induce.Tracer(line):
        parts = basic_parse(line)
