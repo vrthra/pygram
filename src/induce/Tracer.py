@@ -76,7 +76,7 @@ class Tracer:
         """
         frame_env = collections.OrderedDict()  # type: collections.OrderedDict
         frame_env['event'] = induce.TEvents.Enter
-        frame_env['stack'] = Tracer.get_stack(frame)
+        frame_env['context'] = Tracer.get_stack(frame)
 
         my_locals_cpy = my_copy(frame.f_locals)
         param_names = [

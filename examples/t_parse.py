@@ -5,8 +5,8 @@ def lexical_split(mystr):
     ltoks = mystr.split()
     return ltoks
 
-def basic_parse(start):
-    astr = start.replace(',','')
+def basic_parse(line):
+    astr = line.replace(',','')
     astr = astr.replace('and','')
     tokens = lexical_split(astr)
     dept = None

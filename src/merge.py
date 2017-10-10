@@ -3,8 +3,17 @@ import induce
 import sys
 import os
 import collections
+from contextlib import contextmanager
 
 verbose = os.getenv('VERBOSE', '').strip()
+
+@contextmanager
+def grammar():
+    refiner = induce.Refiner()
+    mygrammar = induce.Grammar(refiner)
+    yield mygrammar
+    lines = "_" * 80
+    print(("%s\n%s\n%s" % (lines, refiner, lines)))
 
 def log(var):
     if verbose: print(var, file=sys.stderr)
@@ -13,7 +22,7 @@ if __name__ == "__main__":
     line = '_'* 80
     if sys.argv[1] == '-':
         count = 0
-        with induce.grammar() as g:
+        with grammar() as g:
             for sframe in sys.stdin:
                 if not sframe: continue
                 jframe = json.loads(sframe)
@@ -23,7 +32,7 @@ if __name__ == "__main__":
     else:
         data = induce.slurplstriparg()
         data_len = len(data)
-        with induce.grammar() as g:
+        with grammar() as g:
             for count, sframe in enumerate(data):
                 if not sframe: continue
                 jframe = json.loads(sframe)
