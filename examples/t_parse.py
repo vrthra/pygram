@@ -1,5 +1,5 @@
-import induce
 import collections
+import induce
 
 def lexical_split(mystr):
     ltoks = mystr.split()

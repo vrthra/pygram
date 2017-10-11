@@ -76,7 +76,7 @@ class Tracer:
         """
         frame_env = collections.OrderedDict()  # type: collections.OrderedDict
         frame_env['event'] = induce.TEvents.Enter
-        frame_env['context'] = Tracer.get_stack(frame)
+        frame_env['context'] = Tracer.get_context(frame)
 
         my_locals_cpy = my_copy(frame.f_locals)
         param_names = [
@@ -209,7 +209,9 @@ class Tracer:
         return name
 
     @classmethod
-    def get_stack(cls, frame: Any) -> List[Tuple[str, int]]:
-        """ Get the stack of current call """
-        return [(Tracer.get_qualified_name(i[0]), i[0].__hash__())
-                for i in reversed(inspect.getouterframes(frame))]
+    def get_context(cls, frame: Any) -> List[Tuple[str, int]]:
+        """
+        Get the context of current call. Switch to
+        inspect.getouterframes(frame) if stack is needed
+        """
+        return [(Tracer.get_qualified_name(i), i.__hash__()) for i in [frame]]
