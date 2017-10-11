@@ -6,6 +6,7 @@ from typing import List, Any
 import sys
 import collections
 import re
+from induce.Rule import RKey, RVal
 from induce.Ordered import OrderedSet, merge_odicts
 
 def djs_to_string(djs: OrderedSet) -> str:
@@ -16,14 +17,10 @@ def grammar_lst(rules: collections.OrderedDict) -> List[str]:
     """
     Convert a given set of rules to their string representation
     """
-    def fix(key, rules):
-        if len(rules) == 1:
-            return "%s ::= %s" % (key, djs_to_string(rules))
-        else:
-            return "%s ::=\n\t| %s" % (key, djs_to_string(rules))
-    return [fix(key, rules[key]) for key in rules.keys()]
-
-Parts = collections.namedtuple('Parts', ['uvar', 'var', 'nth', 'fn', 'line'])
+    def fixline(key, rules):
+        fmt = "%s ::= %s" if len(rules) == 1 else "%s ::=\n\t| %s"
+        return fmt % (key, djs_to_string(rules))
+    return [fixline(key, rules[key]) for key in rules.keys()]
 
 class Refiner:
     """
@@ -32,21 +29,19 @@ class Refiner:
     def __init__(self) -> None:
         """ Initialize refiner with grammar """
         self.my_grammar = collections.OrderedDict() # type: collections.OrderedDict
-        self.max_use_uvar = {}
 
     def add_rules(self, rules: List[Any]):
         """ Add new rules from an invocation"""
         for rkey, rval in rules:
-            self.my_grammar.setdefault(rkey, OrderedSet()).add(rval)
+            self.my_grammar.setdefault(rkey, OrderedSet()).add(rval.rule())
 
     def tree(self, ptree):
         self.parent_tree = ptree
 
     def __str__(self) -> str:
         grammar = self.my_grammar
-        grammar = self.update_vars(grammar)
-        #grammar = self.remove_redundant_values(grammar)
-        #grammar = self.remove_redundant_keys(grammar)
+        grammar = self.remove_redundant_values(grammar)
+        grammar = self.remove_redundant_keys(grammar)
         grammar = self.clean(grammar)
         return "\n".join(grammar_lst(grammar))
 
@@ -64,33 +59,9 @@ class Refiner:
             parents = grand_parents
         return False
 
-    def parts(self, mystr):
-        val = re.search('^\$<([^:]+):([0-9]+)>\[(.+),([0-9]+)\]$', mystr)
-        if val:
-            return Parts(uvar = val.group(1),
-                         var="$%s:%s" % (val.group(1), val.group(2)),
-                         nth=int(val.group(2)),
-                         fn=val.group(3),
-                         line=val.group(4))
-
-        val = re.search('^\$<(.+)>\[(.+),([0-9]+)\]$', mystr)
-        if val:
-            return Parts(uvar = val.group(1),
-                         var="$%s" % val.group(1),
-                         nth=0,
-                         fn=val.group(2),
-                         line=val.group(3))
-
-        val = re.search('^\$(.+)$', mystr)
-        if val:
-            return Parts(uvar = val.group(1),
-                         var="$%s" % val.group(1),
-                         nth=0,
-                         fn='@',
-                         line='')
-        return Parts(uvar=None, var=None, nth=None, fn=None, line=None)
-
-    def replace_in_all_rules(self, rules, str1, str2):
+    def replace_in_all_rules(self, rules, kstr1, kstr2):
+        str1 = str(kstr1)
+        str2 = str(kstr2)
         new_rules = collections.OrderedDict()
         for key, values in rules.items():
             new_values = OrderedSet()
@@ -115,8 +86,9 @@ class Refiner:
         rkvdict = dict({v:k for (k,v) in lst})
 
         for key, value in lst:
-            rules[key] = rules[value]
-            del rules[value]
+            rval = RKey.from_key(value)
+            rules[key] = rules[rval]
+            del rules[rval]
 
         for key, value in lst:
             while True:
@@ -146,27 +118,6 @@ class Refiner:
             rules = self.replace_in_all_rules(rules, key, value)
         return rules
 
-    def update_vars(self, rules):
-        for key in rules.keys():
-            pkey = self.parts(key)
-            if self.max_use_uvar.get(pkey.uvar, 0) < pkey.nth:
-                self.max_use_uvar[pkey.uvar] = pkey.nth
-
-        keymap = {}
-        new_rules = collections.OrderedDict()
-        for key in rules.keys():
-            pkey = self.parts(key)
-            if pkey.nth == 0 and self.max_use_uvar.get(pkey.uvar, 0) > 0:
-                new_key = '$<%s:0>[%s,%s]' % (pkey.uvar, pkey.fn, pkey.line)
-                keymap[key] = new_key
-                new_rules[new_key] = rules[key]
-            else:
-                new_rules[key] = rules[key]
-
-        for key, new_key in keymap.items():
-            new_rules = self.replace_in_all_rules(new_rules, key, new_key)
-        return new_rules
-
     def remove_redundant_values(self, rules):
         # find substitutions.
         remove_value = []  # key is the parent of value
@@ -176,24 +127,24 @@ class Refiner:
             if len(values) != 1:
                 continue
             value = values[0]
-
-            pkey = self.parts(key)
-            pval = self.parts(value)
+            # not a variable.
+            pval = RKey.from_key(value)
+            if not pval: continue
 
             # ignore literals and $_START
-            if not pval.fn or not pkey.fn:
+            if not pval.fn or not key.fn:
                 continue
 
             # prefer variables in parent functions over child variables
-            if self.is_parent(pkey.fn, pval.fn):
+            if self.is_parent(key.fn, pval.fn):
                 remove_value.append((key, value))
 
             # prefer unnested variables over deeply nested variables
-            elif pkey.fn.count('.') < pval.fn.count('.'):
+            elif key.fn.count('.') < pval.fn.count('.'):
                 remove_value.append((key, value))
 
             # prefer less often reused variables over variables that are reassigned frequently
-            elif self.max_use_uvar.get(pkey.uvar, 0) < self.max_use_uvar.get(pval.uvar, 0):
+            elif key.maxnth() < pval.maxnth():
                 remove_value.append((key, value))
 
             else:
@@ -211,24 +162,24 @@ class Refiner:
             if len(values) != 1:
                 continue
             value = values[0]
-
-            pkey = self.parts(key)
-            pval = self.parts(value)
+            pval = RKey.from_key(value)
+            # not a variable.
+            if not pval: continue
 
             # ignore literals and $_START
-            if not pval.fn or not pkey.fn:
+            if not pval.fn or not key.fn:
                 continue
 
             # prefer variables in parent functions over child variables
-            if self.is_parent(pval.fn, pkey.fn):
+            if self.is_parent(pval.fn, key.fn):
                 remove_key.append((key, value))
 
             # prefer unnested variables over deeply nested variables
-            elif pkey.fn.count('.') > pval.fn.count('.'):
+            elif key.fn.count('.') > pval.fn.count('.'):
                 remove_key.append((key, value))
 
             # prefer less often reused variables over variables that are reassigned frequently
-            elif self.max_use_uvar.get(pkey.uvar, 0) > self.max_use_uvar.get(pval.uvar, 0):
+            elif key.maxnth() > pval.maxnth():
                 remove_key.append((key, value))
 
             else:
@@ -241,8 +192,7 @@ class Refiner:
         rmaps = {}
         new_rules = rules
         for key in rules.keys():
-            pkey = self.parts(key)
-            new_key = pkey.var
+            new_key = RKey.mk_simplent(key.var)
             if not new_key or maps.get(new_key):
                 new_key = key
             maps[new_key] = key
@@ -251,5 +201,3 @@ class Refiner:
         for key, new_key in rmaps.items():
             new_rules = self.replace_key(new_rules, key, new_key)
         return new_rules
-
-

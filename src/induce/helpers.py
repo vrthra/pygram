@@ -117,3 +117,46 @@ def my_copy(inds: Any, lvl: int = MAX_COPY) -> Any:
 def decorate(stem: str, key: str, sep: str = '.') -> str:
     """Prepend a prefix to key"""
     return '%s%s%s' % (stem, sep, key)
+
+SUBS = '_'
+def varsubs(var):
+    """Replace any variable by SUBS character"""
+    def myrepl(matchobj):
+        l = len(matchobj.group(0))
+        return SUBS * l
+    p = '\$<[^<>]+>\[[^\[\]]+\]'
+    val = re.sub(p, myrepl, var)
+    return val
+
+def replace_str_value(my_str, val, rep):
+    replaced = False
+    new_str = my_str
+    start = 0
+    while start != -1:
+        start = varsubs(new_str).find(val, start)
+        if start != -1:
+            new_str = "%s%s%s" % (new_str[:start], rep, new_str[start + len(val):])
+            replaced = True
+            start += 1
+    return (replaced, new_str)
+
+
+def get_best(rval):
+    max_rep = 0
+    min_vars = float('inf')
+    best = list(rval)[0]
+    for k in rval:
+        replaced = varsubs(k)
+        replaced_len = replaced.count(Grammar.SUBS)
+        var_len = k.count('$')
+        # first look for maximum number of replacements.
+        # then look for minimum number of '$' used to accomplish it
+        if replaced_len > max_rep:
+            max_rep = replaced_len
+            min_vars = var_len
+            best = k
+        elif replaced_len == max_rep and var_len < min_vars:
+            min_vars = var_len
+            best = k
+
+    return {best}
