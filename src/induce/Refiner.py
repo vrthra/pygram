@@ -45,8 +45,8 @@ class Refiner:
     def __str__(self) -> str:
         grammar = self.my_grammar
         grammar = self.update_vars(grammar)
-        grammar = self.remove_redundant_values(grammar)
-        grammar = self.remove_redundant_keys(grammar)
+        #grammar = self.remove_redundant_values(grammar)
+        #grammar = self.remove_redundant_keys(grammar)
         grammar = self.clean(grammar)
         return "\n".join(grammar_lst(grammar))
 
@@ -65,17 +65,29 @@ class Refiner:
         return False
 
     def parts(self, mystr):
-        val = re.search('^<([^:]+):([0-9]+)>\[(.+),([0-9]+)\]$', mystr)
+        val = re.search('^\$<([^:]+):([0-9]+)>\[(.+),([0-9]+)\]$', mystr)
         if val:
-            return Parts(uvar = val.group(1), var="%s:%s" % (val.group(1), val.group(2)), nth=int(val.group(2)), fn=val.group(3), line=val.group(4))
+            return Parts(uvar = val.group(1),
+                         var="$%s:%s" % (val.group(1), val.group(2)),
+                         nth=int(val.group(2)),
+                         fn=val.group(3),
+                         line=val.group(4))
 
-        val = re.search('^<(.+)>\[(.+),([0-9]+)\]$', mystr)
+        val = re.search('^\$<(.+)>\[(.+),([0-9]+)\]$', mystr)
         if val:
-            return Parts(uvar = val.group(1), var=val.group(1), nth=0, fn=val.group(2), line=val.group(3))
+            return Parts(uvar = val.group(1),
+                         var="$%s" % val.group(1),
+                         nth=0,
+                         fn=val.group(2),
+                         line=val.group(3))
 
-        val = re.search('^(.+)$', mystr)
+        val = re.search('^\$(.+)$', mystr)
         if val:
-            return Parts(uvar = val.group(1), var=val.group(1), nth=0, fn='@', line='')
+            return Parts(uvar = val.group(1),
+                         var="$%s" % val.group(1),
+                         nth=0,
+                         fn='@',
+                         line='')
         return Parts(uvar=None, var=None, nth=None, fn=None, line=None)
 
     def replace_in_all_rules(self, rules, str1, str2):
@@ -145,7 +157,7 @@ class Refiner:
         for key in rules.keys():
             pkey = self.parts(key)
             if pkey.nth == 0 and self.max_use_uvar.get(pkey.uvar, 0) > 0:
-                new_key = '%s:0[%s,%s]' % (pkey.uvar, pkey.fn, pkey.line)
+                new_key = '$<%s:0>[%s,%s]' % (pkey.uvar, pkey.fn, pkey.line)
                 keymap[key] = new_key
                 new_rules[new_key] = rules[key]
             else:
