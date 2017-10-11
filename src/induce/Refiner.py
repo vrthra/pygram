@@ -65,11 +65,11 @@ class Refiner:
         return False
 
     def parts(self, mystr):
-        val = re.search('^([^:]+):([0-9]+)\[(.+),([0-9]+)\]$', mystr)
+        val = re.search('^<([^:]+):([0-9]+)>\[(.+),([0-9]+)\]$', mystr)
         if val:
             return Parts(uvar = val.group(1), var="%s:%s" % (val.group(1), val.group(2)), nth=int(val.group(2)), fn=val.group(3), line=val.group(4))
 
-        val = re.search('^(.+)\[(.+),([0-9]+)\]$', mystr)
+        val = re.search('^<(.+)>\[(.+),([0-9]+)\]$', mystr)
         if val:
             return Parts(uvar = val.group(1), var=val.group(1), nth=0, fn=val.group(2), line=val.group(3))
 

@@ -4,6 +4,7 @@ Grammar inference module
 # pylint: disable=C0321,fixme, too-few-public-methods,unused-import
 from typing import Dict, Any, Iterator, List, Tuple
 
+import re
 import collections
 import induce.TEvents
 import induce.Refiner
@@ -16,7 +17,7 @@ def non_trivial_val(val: str) -> bool:
 
 def mk_nt(val: str) -> str:
     """ return the non-terminal """
-    return '$%s' % val.upper()
+    return '$<%s>' % val.upper()
 
 class Context:
     """ The context of call """
@@ -72,6 +73,14 @@ class Grammar:
             if val in ival: return True
         return False
 
+    def varsubs(self, var):
+        def myrepl(matchobj):
+            l = len(matchobj.group(0))
+            return '_' * l
+        p = '\$<[^<>]+>\[[^\[\]]+\]'
+        val = re.sub(p, myrepl, var)
+        return val
+
     def add_new_rule(self, key, val):
         added_rule = None
         my_key = self.get_key(key)
@@ -82,7 +91,7 @@ class Grammar:
             # this gives us more fail safety against accidental
             # replacements.
             while start != -1:
-                start = rval.find(val, start)
+                start = self.varsubs(rval).find(val, start)
                 if start != -1:
                     new_rval = "%s%s%s" % (rval[:start], my_key, rval[start + len(val):])
                     added_rule = (my_key, val)
