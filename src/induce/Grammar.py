@@ -56,7 +56,7 @@ class Grammar:
 
         # The variables currently visible to the method.
         # Used for ensuring that reassignments are tracked.
-        self.visible_vars = [] # type: List[Any]
+        self.visible_vars_stack = [] # type: List[Any]
 
         self.collected_rules = []
         self.refiner = refiner
@@ -103,7 +103,7 @@ class Grammar:
 
     def get_single_assign_vars(self, variables):
         new_variables = []
-        visible_vars = self.visible_vars[-1]
+        visible_vars = self.visible_vars_stack[-1]
         for key, val in variables:
             if not non_trivial_val(val): continue
             vval = visible_vars.get(key)
@@ -135,13 +135,13 @@ class Grammar:
             added_rules.extend(self.add_new_rule(key, val))
         self.collected_rules.extend(added_rules)
 
-        self.visible_vars.append({k:0 for k, v in my_parameters})
+        self.visible_vars_stack.append({k:0 for k, v in my_parameters})
 
 
     def on_exit(self, _frameenv: Dict[str, Any]) -> None:
         """On method call"""
         self.input_stack.pop()
-        self.visible_vars.pop()
+        self.visible_vars_stack.pop()
         self.context_stack.pop()
 
     def get_key(self, key):
