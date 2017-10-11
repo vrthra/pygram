@@ -84,7 +84,7 @@ class Grammar:
             while start != -1:
                 start = rval.find(val, start)
                 if start != -1:
-                    new_rval = rval[:start] + my_key + rval[start + len(val):]
+                    new_rval = "%s%s%s" % (rval[:start], my_key, rval[start + len(val):])
                     added_rule = (my_key, val)
                     start += 1
             self.collected_rules[idx] = (rkey, new_rval)

@@ -47,19 +47,21 @@ class Refiner:
         grammar = self.update_vars(grammar)
         grammar = self.remove_redundant_values(grammar)
         grammar = self.remove_redundant_keys(grammar)
-        grammar = self.clean(grammar) 
+        grammar = self.clean(grammar)
         return "\n".join(grammar_lst(grammar))
 
     def is_parent(self, parent, child):
         if not child: return False
-        nxt_step = self.parent_tree.get(child)
-        while nxt_step:
-            if parent in nxt_step: return True
-            new_step = set()
-            for i in nxt_step:
-                v = self.parent_tree.get(i)
-                if v: new_step |= v
-            nxt_step = new_step
+        parents = self.parent_tree.get(child, set())
+        seen = set(parents)
+        while parents:
+            if parent in parents: return True
+            grand_parents = set()
+            for new_p in parents:
+                gp = self.parent_tree.get(new_p, set()) - seen
+                grand_parents |= gp
+                seen |= gp
+            parents = grand_parents
         return False
 
     def parts(self, mystr):
