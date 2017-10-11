@@ -121,14 +121,10 @@ class Grammar:
         # get the parameters that are non-trivial
         rules = [(key, val) for key, val in my_parameters
                  if self.is_in_input(val)]
-        # -----
-        # self.collected_rules.extend([(self.get_key(k), v) for k,v in rules])
-        # -----
         added_rules = []
         for key, val in rules:
             added_rules.extend(self.add_new_rule(key, val))
         self.collected_rules.extend(added_rules)
-        # -----
 
         self.visible_vars.append({k:0 for k, v in my_parameters})
 

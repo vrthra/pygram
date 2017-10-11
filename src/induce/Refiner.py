@@ -52,11 +52,15 @@ class Refiner:
 
     def is_parent(self, parent, child):
         if not child: return False
-        nxt = self.parent_tree.get(child)
-        while nxt and parent not in nxt:
-            assert len(nxt) == 1
-            nxt = self.parent_tree.get(nxt[0])
-        return nxt is not None
+        nxt_step = self.parent_tree.get(child)
+        while nxt_step:
+            if parent in nxt_step: return True
+            new_step = set()
+            for i in nxt_step:
+                v = self.parent_tree.get(i)
+                if v: new_step |= v
+            nxt_step = new_step
+        return False
 
     def parts(self, mystr):
         val = re.search('^([^:]+):([0-9]+)\[(.+),([0-9]+)\]$', mystr)

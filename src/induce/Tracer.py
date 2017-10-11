@@ -92,8 +92,11 @@ class Tracer:
             for k, v in my_locals_cpy.items() if k not in param_names
         }
 
-        # There should be no variables on call.
-        assert not my_variables
+        # There should be no variables on call. However
+        # list comprehensions seem to work against us here.
+        # context": [["@.<listcomp>", -9223372036853519230]],
+        # "parameters": [], "variables": [["char", "\""]]
+        # assert not my_variables
 
         frame_env['parameters'] = scrub(flatten(my_parameters))
         frame_env['variables'] = scrub(flatten(my_variables))
@@ -155,6 +158,8 @@ class Tracer:
         elif event == 'line':
             frame_env = self.on_line(frame, arg)
 
+        elif event == 'exception':
+            return
         else:
             raise Exception(event)
 
