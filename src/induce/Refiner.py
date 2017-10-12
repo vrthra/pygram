@@ -84,21 +84,17 @@ class Refiner:
 
     def replace_def_of_key_with_value_def(self, lst, rules):
         # thus deleting the value
-        rkvdict = {str(v):k for (k,v) in lst}
+        deleted_keys = {}
 
         for key, value in lst:
             rval = self.key_tracker.parse_key(value)
-            k = rules[rval]
+            while key in deleted_keys:
+                key = deleted_keys[key]
             rules[key] = rules[rval]
             del rules[rval]
+            # removed value by replacing it with key
+            deleted_keys[value] = str(key)
 
-        for key, value in lst:
-            while True:
-                # can we use the key? is it already replaced?
-                if rkvdict.get(str(key)):
-                    key = rkvdict[str(key)]
-                else:
-                    break
             rules = self.replace_in_all_rules(rules, value, key)
 
         return rules
@@ -110,12 +106,9 @@ class Refiner:
             del rules[key]
 
         for key, value in lst:
-            while True:
+            while str(value) in kvdict:
                 # can we use the key? is it already replaced?
-                if kvdict.get(str(value)):
-                    value = kvdict[str(value)]
-                else:
-                    break
+                value = kvdict[str(value)]
             rules = self.replace_in_all_rules(rules, key, value)
         return rules
 
