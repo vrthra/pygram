@@ -7,8 +7,8 @@ from typing import Dict, Any, Iterator, List, Tuple
 import collections
 import induce.TEvents
 import induce.Refiner
-from induce.Rule import RKey, RVal
-from induce.helpers import decorate, varsubs, replace_str_value
+from induce.Rule import RKey, RVal, RFactory
+from induce.helpers import decorate, replace_str_value
 from induce.Ordered import OrderedSet
 
 def non_trivial_val(val: str) -> bool:
@@ -58,6 +58,7 @@ class Grammar:
         self.refiner = refiner
         self.parent_tree = {}
         self.called_method = None
+        self.key_tracker = RFactory()
 
     def is_in_input(self, val: str) -> bool:
         """
@@ -72,7 +73,7 @@ class Grammar:
         added_choice = False
         if not self.is_in_input(val): return []
 
-        nkey = RKey.from_context(key, self.current_context())
+        nkey = self.key_tracker.key_from_context(key, self.current_context())
 
         for idx, (rkey, rval) in enumerate(self.collected_rules):
             # limit search to one step up and down.
@@ -135,15 +136,16 @@ class Grammar:
         """Save input at the start of a record"""
         my_input = ('_START', frameenv['$input'])
         self.input_stack.append([my_input])
-        self.collected_rules.append((RKey('_start', '@', 0), RVal(frameenv['$input'])))
+        self.collected_rules.append((self.key_tracker.start_rule('_start'), RVal(frameenv['$input'])))
         self.context_stack.append(Context([('@',0)], ('_','0')))
 
     def trace_stop(self) -> None:
         """ reset grammar at the end of a record"""
-        self.refiner.tree(self.parent_tree)
-        self.refiner.add_rules(self.collected_rules)
+        self.refiner.update(self.collected_rules, self.key_tracker, self.parent_tree)
+        self.parent_tree = {}
         self.collected_rules = []
         self.input_stack = []
+        self.key_tracker = RFactory()
 
     def handle_events(self, jframe: Dict[str, Any]) -> int:
         """Calll correct events based on the frame"""

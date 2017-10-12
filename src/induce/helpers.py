@@ -2,6 +2,7 @@
 Helper module
 """
 import sys
+import re
 from typing import List, Tuple, Any, Dict
 import traceback
 

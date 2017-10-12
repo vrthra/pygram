@@ -6,7 +6,7 @@ from typing import List, Any
 import sys
 import collections
 import re
-from induce.Rule import RKey, RVal
+from induce.Rule import RKey, RVal, RFactory
 from induce.Ordered import OrderedSet, merge_odicts
 
 def djs_to_string(djs: OrderedSet) -> str:
@@ -29,14 +29,16 @@ class Refiner:
     def __init__(self) -> None:
         """ Initialize refiner with grammar """
         self.my_grammar = collections.OrderedDict() # type: collections.OrderedDict
+        self.max_nth = {}
+        self.defined_in = {}
+        self.key_tracker = RFactory()
 
-    def add_rules(self, rules: List[Any]):
+    def update(self, rules: List[Any], key_tracker, ptree):
         """ Add new rules from an invocation"""
+        self.parent_tree = ptree # TODO: merge this too.
+        self.key_tracker.merge(key_tracker)
         for rkey, rval in rules:
             self.my_grammar.setdefault(rkey, OrderedSet()).add(rval.rule())
-
-    def tree(self, ptree):
-        self.parent_tree = ptree
 
     def __str__(self) -> str:
         grammar = self.my_grammar
@@ -82,19 +84,19 @@ class Refiner:
 
     def replace_def_of_key_with_value_def(self, lst, rules):
         # thus deleting the value
-        kvdict = dict(lst)
-        rkvdict = dict({v:k for (k,v) in lst})
+        rkvdict = {str(v):k for (k,v) in lst}
 
         for key, value in lst:
-            rval = RKey.from_key(value)
+            rval = self.key_tracker.parse_key(value)
+            k = rules[rval]
             rules[key] = rules[rval]
             del rules[rval]
 
         for key, value in lst:
             while True:
                 # can we use the key? is it already replaced?
-                if rkvdict.get(key):
-                    key = rkvdict[key]
+                if rkvdict.get(str(key)):
+                    key = rkvdict[str(key)]
                 else:
                     break
             rules = self.replace_in_all_rules(rules, value, key)
@@ -102,8 +104,7 @@ class Refiner:
         return rules
 
     def replace_use_of_key_with_value(self, lst, rules):
-        kvdict = dict(lst)
-        rkvdict = dict({v:k for (k,v) in lst})
+        kvdict = {str(k):v for k,v in lst}
         # thus deleting the key
         for key, value in lst:
             del rules[key]
@@ -111,12 +112,18 @@ class Refiner:
         for key, value in lst:
             while True:
                 # can we use the key? is it already replaced?
-                if kvdict.get(value):
-                    value = kvdict[value]
+                if kvdict.get(str(value)):
+                    value = kvdict[str(value)]
                 else:
                     break
             rules = self.replace_in_all_rules(rules, key, value)
         return rules
+
+    def maxnth(self, key):
+        return self.key_tracker.maxnth(key)
+
+    def definedin(self, key):
+        return self.key_tracker.defs(key)
 
     def remove_redundant_values(self, rules):
         # find substitutions.
@@ -128,7 +135,7 @@ class Refiner:
                 continue
             value = values[0]
             # not a variable.
-            pval = RKey.from_key(value)
+            pval = self.key_tracker.parse_key(value)
             if not pval: continue
 
             # ignore literals and $_START
@@ -144,7 +151,7 @@ class Refiner:
                 remove_value.append((key, value))
 
             # prefer less often reused variables over variables that are reassigned frequently
-            elif key.maxnth() < pval.maxnth():
+            elif self.maxnth(key) < self.maxnth(pval):
                 remove_value.append((key, value))
 
             else:
@@ -162,7 +169,7 @@ class Refiner:
             if len(values) != 1:
                 continue
             value = values[0]
-            pval = RKey.from_key(value)
+            pval = self.key_tracker.parse_key(value)
             # not a variable.
             if not pval: continue
 
@@ -179,7 +186,7 @@ class Refiner:
                 remove_key.append((key, value))
 
             # prefer less often reused variables over variables that are reassigned frequently
-            elif key.maxnth() > pval.maxnth():
+            elif self.maxnth(key) > self.maxnth(pval):
                 remove_key.append((key, value))
 
             else:
@@ -187,17 +194,17 @@ class Refiner:
 
         return self.replace_use_of_key_with_value(remove_key, rules)
 
-    def clean(self, rules):
-        maps = {}
-        rmaps = {}
-        new_rules = rules
-        for key in rules.keys():
-            new_key = RKey.mk_simplent(key.var)
-            if not new_key or maps.get(new_key):
-                new_key = key
-            maps[new_key] = key
-            rmaps[key] = new_key
+    def mk_rkey(self, pkey) -> str:
+        """ return the non-terminal """
+        nth_s = ":%s" % pkey.nth if self.maxnth(pkey) > 0 else ""
+        tail = "[%s,%s]" % (pkey.fn, pkey.pos) if len(self.definedin(pkey)) > 1 else ""
+        return "$%s%s%s" % (pkey.var, nth_s, tail)
 
+
+    def clean(self, rules):
+        rmaps = {key: self.mk_rkey(key) for key in rules.keys()}
+
+        new_rules = rules
         for key, new_key in rmaps.items():
             new_rules = self.replace_key(new_rules, key, new_key)
         return new_rules

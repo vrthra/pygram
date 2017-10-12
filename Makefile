@@ -32,6 +32,9 @@ ff:;find * -not -type d -exec file '{}' ';'
 	cat $@.tmp
 	mv $@.tmp $@
 
+%.gx: %.js
+	$(env) $(python3) ./src/merge.py $?
+
 %.jsx:
 	$(env) $(python3) examples/$*.py data/$*.dat
 
