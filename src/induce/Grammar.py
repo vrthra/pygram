@@ -78,7 +78,7 @@ class Grammar:
         for idx, (rkey, rval) in enumerate(self.collected_rules):
             # limit search to one step up and down.
             # TUNABLE
-            if rkey.fn not in base_method: continue
+            # if rkey.fn not in base_method: continue
 
             if rval.contains(val):
                 rval.add_choice(nkey, val)

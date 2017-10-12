@@ -7,7 +7,7 @@ from induce.Ordered import OrderedSet
 import induce.helpers
 
 # How many variables to leave out
-MAX_DEPTH = 0
+MAX_DEPTH = 5
 
 def qualname(fn, var):
     return "%s:%s" % (fn, var)
@@ -113,7 +113,10 @@ class RKey:
         return hash(tuple(sorted(self.__dict__.items())))
 
 def fitness(var):
-    return induce.helpers.varsubs(var).count(induce.helpers.SUBS)
+    val = induce.helpers.varsubs(var)
+    orig_len = len(var)
+    new_len = len(val.replace(induce.helpers.SUBS, ''))
+    return new_len # smaller new_len is better for heapify
 
 def use_all(my_str, choices):
     for key, val in choices:
@@ -145,17 +148,17 @@ class RVal:
 
         for val in leave_n_out(self.var, self.choices, MAX_DEPTH):
             fit = fitness(val)
-            heapq.heappush(heap, (fit, val))
+            heapq.heappush(heap, (fit, val)) # smallest item
         val = heapq.heappop(heap)
         return val[1]
 
-    def simple_rule(self):
+    def rule_simple(self):
         var = self.var
         for k, v in self.choices:
             var = var.replace(v, str(k))
         return var
 
-    def debug_rule(self):
+    def rule_debug(self):
         var = self.var
         for k, v in self.choices:
             var = "%s>%s:%s" % (var, str(k), v)

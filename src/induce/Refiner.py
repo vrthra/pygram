@@ -11,7 +11,7 @@ from induce.Ordered import OrderedSet, merge_odicts
 
 def djs_to_string(djs: OrderedSet) -> str:
     """Convert disjoint set to string"""
-    return "\n\t| ".join([i.replace('\n', '\\n') for i in sorted(djs)])
+    return "\n\t| ".join([i.replace('\n', '\n|\t') for i in sorted(djs)])
 
 def grammar_lst(rules: collections.OrderedDict) -> List[str]:
     """
@@ -61,6 +61,26 @@ class Refiner:
             parents = grand_parents
         return False
 
+    def delete_key(self, key, rules):
+        # deleting a key means first replacing the key's defs
+        # in each of the rules, and lastly
+        # deleting the key's def in the rule
+        new_rules = collections.OrderedDict()
+        values = rules[key]
+
+        for rkey, rvalues in rules.items():
+            if rkey == key: continue
+            new_rvalues = OrderedSet()
+            for rvalue in rvalues:
+                if key in rvalue:
+                    for val in values:
+                        new_rvalues.append(replace_str_value(rvalue, key, val))
+                else:
+                    new_rvalues.append(rvalue)
+            new_rules[rkey] = new_rvalues
+
+        return new_rvalues
+
     def replace_in_all_rules(self, rules, kstr1, kstr2):
         str1 = str(kstr1)
         str2 = str(kstr2)
@@ -84,21 +104,17 @@ class Refiner:
 
     def replace_def_of_key_with_value_def(self, lst, rules):
         # thus deleting the value
-        rkvdict = {str(v):k for (k,v) in lst}
+        deleted_keys = {}
 
         for key, value in lst:
             rval = self.key_tracker.parse_key(value)
-            k = rules[rval]
+            while key in deleted_keys:
+                key = deleted_keys[key]
             rules[key] = rules[rval]
             del rules[rval]
+            # removed value by replacing it with key
+            deleted_keys[value] = str(key)
 
-        for key, value in lst:
-            while True:
-                # can we use the key? is it already replaced?
-                if rkvdict.get(str(key)):
-                    key = rkvdict[str(key)]
-                else:
-                    break
             rules = self.replace_in_all_rules(rules, value, key)
 
         return rules
@@ -110,12 +126,9 @@ class Refiner:
             del rules[key]
 
         for key, value in lst:
-            while True:
+            while str(value) in kvdict:
                 # can we use the key? is it already replaced?
-                if kvdict.get(str(value)):
-                    value = kvdict[str(value)]
-                else:
-                    break
+                value = kvdict[str(value)]
             rules = self.replace_in_all_rules(rules, key, value)
         return rules
 
@@ -128,12 +141,15 @@ class Refiner:
     def remove_redundant_values(self, rules):
         # find substitutions.
         remove_value = []  # key is the parent of value
+        seen = set()
 
         for key, values in rules.items():
             # ignore disjoints for now.
             if len(values) != 1:
                 continue
             value = values[0]
+            if value in seen: continue
+            seen.add(value)
             # not a variable.
             pval = self.key_tracker.parse_key(value)
             if not pval: continue
