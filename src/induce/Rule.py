@@ -149,17 +149,17 @@ class RVal:
         val = heapq.heappop(heap)
         return val[1]
 
-    def simple_rule(self):
+    def rule_simple(self):
         var = self.var
         for k, v in self.choices:
             var = var.replace(v, str(k))
         return var
 
-    def debug_rule(self):
+    def rule_debug(self):
         var = self.var
         for k, v in self.choices:
             var = "%s>%s:%s" % (var, str(k), v)
         return var
 
     def rule(self):
-        return self.rule_fitness()
+        return self.rule_simple()
