@@ -79,6 +79,21 @@ class RFactory:
     def defs(self, key):
         return self.defined_in.get(key.var)
 
+    def __eq__(self, other):
+        """Override the default Equals behavior"""
+        if not isinstance(other, self.__class__): return NotImplemented
+        return self.__dict__ == other.__dict__
+
+    def __ne__(self, other):
+        """Define a non-equality test"""
+        if not isinstance(other, self.__class__): return NotImplemented
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        """Override the default hash behavior (that returns the id or the object)"""
+        return hash(tuple(sorted(self.__dict__.items())))
+
+
 class RKey:
     """The variable key"""
     def __init__(self, var, fn, pos, nth=0):
@@ -128,14 +143,21 @@ def leave_n_out(my_str, choices, n):
     if till < 0: till = 0
     for num in range(len(choices), till, -1):
         for subset in itertools.combinations(choices, num):
-            val = use_all(my_str, subset)
-            yield val
+            yield use_all(my_str, subset)
 
 class RVal:
     def __init__(self, var):
         self.var = var
         self.choices = OrderedSet()
         self.rstr = None
+
+    def __str__(self):
+        rep = self.rule()[0]
+        return "%s(%s)" % (rep, self.var)
+
+    def __repr__(self):
+        ch = ",".join([str(i) for i in self.choices])
+        return "rval:%s(%s)" % (self.var, ch)
 
     def add_choice(self, key, val):
         self.choices.add((key, val))
