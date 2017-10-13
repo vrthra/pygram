@@ -124,9 +124,9 @@ def use_all(my_str, choices):
     return my_str
 
 def leave_n_out(my_str, choices, n):
-    count = len(choices)-n-1
-    if count < 0: count = 0
-    for num in range(len(choices), count, -1):
+    till = len(choices)-n-1
+    if till < 0: till = 0
+    for num in range(len(choices), till, -1):
         for subset in itertools.combinations(choices, num):
             val = use_all(my_str, subset)
             yield val
@@ -146,11 +146,11 @@ class RVal:
         heap = []
         if not self.choices: return self.var
 
+        pos = 0 # ensure that initial variables are preferred over later ones
         for val in leave_n_out(self.var, self.choices, MAX_DEPTH):
-            fit = fitness(val)
-            heapq.heappush(heap, (fit, val)) # smallest item
-        val = heapq.heappop(heap)
-        return val[1]
+            heapq.heappush(heap, (fitness(val), pos, val)) # smallest item
+            pos += 1
+        return heapq.heappop(heap)[2]
 
     def rule_simple(self):
         var = self.var
