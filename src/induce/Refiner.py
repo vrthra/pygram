@@ -42,7 +42,7 @@ class Refiner:
 
     def __str__(self) -> str:
         grammar = self.my_grammar
-        # grammar = self.remove_redundant_values(grammar) # -- suspect
+        grammar = self.remove_redundant_values(grammar)
         grammar = self.remove_redundant_keys(grammar)
         grammar = self.clean(grammar)
         return "\n".join(grammar_lst(grammar))
@@ -102,20 +102,20 @@ class Refiner:
                 new_rules[key] = values
         return self.replace_in_all_rules(new_rules, key1, key2)
 
-    def replace_def_of_key_with_value_def(self, lst, rules):
-        # thus deleting the value
-        deleted_keys = {}
 
-        for key, value in lst:
-            rval = self.key_tracker.parse_key(value)
-            while key in deleted_keys:
-                key = deleted_keys[key]
+    def is_key_used(self, rules, rval):
+        for key, values in rules.items():
+            for value in values:
+                if str(rval) in value:
+                    return True
+        return False
+
+    def replace_use_of_key_with_its_def(self, lst, rules):
+
+        for key, rval in lst:
             rules[key] = rules[rval]
-            del rules[rval]
-            # removed value by replacing it with key
-            deleted_keys[value] = str(key)
-
-            rules = self.replace_in_all_rules(rules, value, key)
+            if not self.is_key_used(rules, rval):
+               del rules[rval]
 
         return rules
 
@@ -127,9 +127,7 @@ class Refiner:
             del rules[key1]
 
         for key1, key2 in lst:
-            print(": ", key1, '=>', key2)
             while key2 in remove_dict: key2 = remove_dict[key2]
-            print(": ", key1, '..=>', key2)
             rules = self.replace_in_all_rules(rules, key1, key2)
         return rules
 
@@ -140,15 +138,22 @@ class Refiner:
         return self.key_tracker.defs(key)
 
     def remove_redundant_values(self, rules):
+        # given a definition such as $my_key1 = $my_key2
+        # $my_key2 is redundant, especially if $my_key1 is
+        # preferable over $my_key2, and $my_key2 is a single
+        # alternative key.
+        # so replace $my_key2 string with rules[my_key2]
+        # and if no one else uses my_key2, delete it.
+
         # find substitutions.
         remove_value = []  # key is the parent of value
         seen = set()
 
         for key, values in rules.items():
             # ignore disjoints for now.
-            if len(values) != 1:
-                continue
+            if len(values) != 1: continue
             value = values[0]
+            # we have alredy decided to delete this key
             if value in seen: continue
             seen.add(value)
             # not a variable.
@@ -156,25 +161,24 @@ class Refiner:
             if not pval: continue
 
             # ignore literals and $_START
-            if not pval.fn or not key.fn:
-                continue
+            if not pval.fn or not key.fn: continue
 
             # prefer variables in parent functions over child variables
             if self.is_parent(key.fn, pval.fn):
-                remove_value.append((key, value))
+                remove_value.append((key, pval))
 
             # prefer unnested variables over deeply nested variables
-            elif key.fn.count('.') < pval.fn.count('.'):
-                remove_value.append((key, value))
+            elif key.var.count('.') < pval.var.count('.'):
+                remove_value.append((key, pval))
 
             # prefer less often reused variables over variables that are reassigned frequently
             elif self.maxnth(key) < self.maxnth(pval):
-                remove_value.append((key, value))
+                remove_value.append((key, pval))
 
             else:
                 pass
 
-        return self.replace_def_of_key_with_value_def(remove_value, rules)
+        return self.replace_use_of_key_with_its_def(remove_value, rules)
 
 
     def remove_redundant_keys(self, rules):
@@ -195,24 +199,27 @@ class Refiner:
             if not pval: continue
 
             # ignore literals and $_START
-            if not pval.fn or not key.fn:
-                continue
+            if not pval.fn or not key.fn: continue
 
             # prefer variables in parent functions over child variables
             if self.is_parent(pval.fn, key.fn):
                 remove_key.append((key, pval))
 
             # prefer unnested variables over deeply nested variables
-            elif key.fn.count('.') > pval.fn.count('.'):
+            elif key.var.count('.') > pval.var.count('.'):
                 remove_key.append((key, pval))
 
-            # prefer less often reused variables over variables that are reassigned frequently
+            # prefer less often reused variables over variables that are
+            # reassigned frequently
             elif self.maxnth(key) > self.maxnth(pval):
                 remove_key.append((key, pval))
 
             # same var names. Prefer first defined.
             elif key.var == pval.var:
                 remove_key.append((key, pval))
+
+            # TODO: eliminate undesirable deeply nested arrays in favor
+            # of string values. i.e $result.1.0.1 = CS, remove $result.1.0.1
 
             else:
                 pass

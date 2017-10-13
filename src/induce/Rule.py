@@ -160,6 +160,8 @@ class RVal:
         return "rval:%s(%s)" % (self.var, ch)
 
     def add_choice(self, key, val):
+        # TODO: Dont add as a choice if key is very related to val
+        # esp. as a different element of an array.
         self.choices.add((key, val))
 
     def contains(self, mystr):
