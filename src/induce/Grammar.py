@@ -70,6 +70,15 @@ class Grammar:
         return any(val in ival for _ikey, ival in last_input)
 
     def add_new_rule(self, key, val, base_method):
+        def stem(key):
+            """The name of the variable, without array/dict extensions"""
+            return key.split('.')[0]
+        def same_def(key1, key2):
+            """ Do not let the part of same nested variables be a choice"""
+            val = (key1.fn == key2.fn and
+                    key1.pos == key2.pos and
+                    stem(key1.var) == stem(key2.var))
+            return val
         added_choice = False
         if not self.is_in_input(val): return []
 
@@ -79,8 +88,7 @@ class Grammar:
             # limit search to one step up and down.
             # TUNABLE
             # if rkey.fn not in base_method: continue
-
-            if rval.contains(val):
+            if rval.contains(val) and not same_def(rkey, nkey):
                 rval.add_choice(nkey, val)
                 added_choice = True
         if added_choice:
