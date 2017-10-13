@@ -7,7 +7,7 @@ from induce.Ordered import OrderedSet
 import induce.helpers
 
 # How many variables to leave out
-MAX_DEPTH = 5
+MAX_DEPTH = 3
 
 def qualname(fn, var):
     return "%s:%s" % (fn, var)
@@ -135,6 +135,7 @@ class RVal:
     def __init__(self, var):
         self.var = var
         self.choices = OrderedSet()
+        self.rstr = None
 
     def add_choice(self, key, val):
         self.choices.add((key, val))
@@ -153,10 +154,7 @@ class RVal:
         return heapq.heappop(heap)[2]
 
     def rule_simple(self):
-        var = self.var
-        for k, v in self.choices:
-            var = var.replace(v, str(k))
-        return var
+        return use_all(self.var, self.choices)
 
     def rule_debug(self):
         var = self.var
@@ -165,4 +163,6 @@ class RVal:
         return var
 
     def rule(self):
-        return self.rule_fitness()
+        if not self.rstr:
+           self.rstr = self.rule_fitness()
+        return self.rstr

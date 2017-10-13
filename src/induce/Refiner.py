@@ -42,7 +42,7 @@ class Refiner:
 
     def __str__(self) -> str:
         grammar = self.my_grammar
-        grammar = self.remove_redundant_values(grammar)
+        # grammar = self.remove_redundant_values(grammar) # -- suspect
         grammar = self.remove_redundant_keys(grammar)
         grammar = self.clean(grammar)
         return "\n".join(grammar_lst(grammar))
@@ -119,17 +119,18 @@ class Refiner:
 
         return rules
 
-    def replace_use_of_key_with_value(self, lst, rules):
-        kvdict = {str(k):v for k,v in lst}
-        # thus deleting the key
-        for key, value in lst:
-            del rules[key]
+    def replace_use_of_key_with_new_key(self, lst, rules):
+        # so, delete $my_key1 key, and replace any use of
+        # $my_key1 in other rules with $my_key2
+        remove_dict = {k:v for k,v in lst}
+        for key1, key2 in lst:
+            del rules[key1]
 
-        for key, value in lst:
-            while str(value) in kvdict:
-                # can we use the key? is it already replaced?
-                value = kvdict[str(value)]
-            rules = self.replace_in_all_rules(rules, key, value)
+        for key1, key2 in lst:
+            print(": ", key1, '=>', key2)
+            while key2 in remove_dict: key2 = remove_dict[key2]
+            print(": ", key1, '..=>', key2)
+            rules = self.replace_in_all_rules(rules, key1, key2)
         return rules
 
     def maxnth(self, key):
@@ -177,7 +178,11 @@ class Refiner:
 
 
     def remove_redundant_keys(self, rules):
-        # find substitutions.
+        # given a definition such as $my_key1 = $my_key2
+        # $my_key1 is redundant, especially if $my_key2 is
+        # preferable over $my_key1.
+        # so, delete $my_key1 key, and replace any use of
+        # $my_key1 in other rules with $my_key2
         remove_key = []  # value is the parent of key
 
         for key, values in rules.items():
@@ -195,30 +200,40 @@ class Refiner:
 
             # prefer variables in parent functions over child variables
             if self.is_parent(pval.fn, key.fn):
-                remove_key.append((key, value))
+                remove_key.append((key, pval))
 
             # prefer unnested variables over deeply nested variables
             elif key.fn.count('.') > pval.fn.count('.'):
-                remove_key.append((key, value))
+                remove_key.append((key, pval))
 
             # prefer less often reused variables over variables that are reassigned frequently
             elif self.maxnth(key) > self.maxnth(pval):
-                remove_key.append((key, value))
+                remove_key.append((key, pval))
+
+            # same var names. Prefer first defined.
+            elif key.var == pval.var:
+                remove_key.append((key, pval))
 
             else:
                 pass
 
-        return self.replace_use_of_key_with_value(remove_key, rules)
+        return self.replace_use_of_key_with_new_key(remove_key, rules)
 
-    def mk_rkey(self, pkey) -> str:
+    def mk_rkey(self, key, defs) -> str:
         """ return the non-terminal """
-        nth_s = ":%s" % pkey.nth if self.maxnth(pkey) > 0 else ""
-        tail = "[%s,%s]" % (pkey.fn, pkey.pos) if len(self.definedin(pkey)) > 1 else ""
-        return "$%s%s%s" % (pkey.var, nth_s, tail)
+        nth_s = ":%s" % key.nth if self.maxnth(key) > 0 else ""
+        tail = "[%s,%s]" % (key.fn, key.pos) if len(defs[key.var]) > 1 else ""
+        return "$%s%s%s" % (key.var, nth_s, tail)
 
 
     def clean(self, rules):
-        rmaps = {key: self.mk_rkey(key) for key in rules.keys()}
+        defs = {}
+        for key in rules.keys():
+            if key.var in defs:
+                defs[key.var].add(key.fn)
+            else:
+                defs[key.var] = {key.fn}
+        rmaps = {key: self.mk_rkey(key, defs) for key in rules.keys()}
 
         new_rules = rules
         for key, new_key in rmaps.items():
