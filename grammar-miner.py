@@ -1,8 +1,9 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # Mine a grammar from dynamic behavior
 
 # This program is copyright (c) 2017 Saarland University.
 # Written by Andreas Zeller <zeller@cs.uni-saarland.de>.
+# Updated by Rahul Gopinath <rahul.gopinath@uni-saarland.de>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,8 +18,44 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+
+# Changes:
+# - Ordered addition of new variables as new variables are defined
+#   (and slightly improved performance as a result)
+# - A variable is only checked for inclusion on the current parameters of the function.
+# - Qualified (class:fn) names to avoid conflicts with similar variable names in subroutines
+# - Simplified grammar merge
+# TODO:
+# * Add string globals to the string parameters and variables
+#   being considered for rule replacements.
+# * Expand nested objects and include the string variables within
+#   them when doing rule replacements.
+# * Currently the program does not manage what happens when the
+#   same variable is reassigned -- such as during a loop. Fix this
+#   so that reassignments are distinguished by a unique id.
+# * Fix what happens when the same function is called repeatedly
+#   from different parts. (Parameters, and variables)
+# * When applying replace a variable value with the non-terminal
+#   variable name, ensure that the replacement is done only on the
+#   variables that are visible to the current variable.
+# * Use simple taint-tracing or dataflow analysis to restrict the
+#   number of rules in consideration when trying to do the
+#   non-terminal replacement.
+# * Use leave-n-out strategy to get the best non-terminal
+#   replacements by avoiding spurious non-terminal inclusions.
+# * When multiple matches are found for a variable value inside
+#   a rule, include all combinations of the variable replacements
+#   as rule choices.
+# * Figure out better grammar compaction heuristics
+# * Add a fuzzing step to test each individual choice in the rules
+#   i.e. take a single input and the grammar derived from it, then
+#   fuzz the input by using only a single choice and verify that
+#   the choice is actually correct.
+# * Use string representation, and add more kinds of variables
+
 import sys
 import random
+import collections
 
 from urllib.parse import urlparse
 
@@ -29,125 +66,126 @@ INPUTS = [
 ]
 
 # We store individual variable/value pairs here
-global the_values
-the_values = {}
+class Vars:
+    defs = None
 
-# The current input string
-global the_input
-the_input = None
+    def init(i):
+        Vars.defs = collections.OrderedDict({'START':i})
+
+    def varname(var, frame):
+        class_name = frame.f_code.co_name
+        if frame.f_code.co_name == '__new__':
+            class_name = frame.f_locals[frame.f_code.co_varnames[0]].__name__
+        return "%s:%s" % (class_name, var) # (frame.f_code.co_name, frame.f_lineno, var)
+
+    def update_vars(var, value, frame):
+        if isinstance(value, str) and len(value) >= 2 and InputStack.has(value):
+           qual_var = Vars.varname(var, frame)
+           if not Vars.defs.get(qual_var):
+               Vars.defs[qual_var] = value
+
+class InputStack:
+    # The current input string
+    inputs = []
+
+    def has(val):
+        return any(val in var for var in InputStack.inputs[-1].values())
+
+    def push(inputs):
+        if not InputStack.inputs:
+            my_inputs = {k:v for k,v in inputs.items()
+                        if isinstance(v, str)}
+        else:
+            my_inputs = {k:v for k,v in inputs.items()
+                         if isinstance(v, str) and InputStack.has(v)}
+        InputStack.inputs.append(my_inputs)
+
+    def pop():
+        return InputStack.inputs.pop()
 
 # We record all string variables and values occurring during execution
 def traceit(frame, event, arg):
-    global the_values
-    variables = frame.f_locals.keys()
+    if event == 'call':
+        param_names = [frame.f_code.co_varnames[i]
+                       for i in range(frame.f_code.co_argcount)]
+        my_parameters = {k: v for k, v in frame.f_locals.items()
+                         if k in param_names}
+        InputStack.push(my_parameters)
 
-    for var in variables:
-        value = frame.f_locals[var]
-        # print(var, value)
-        
-        # Save all non-trivial string values that also occur in the input
-        if type(value) == type('') and len(value) >= 2 and value in the_input:
-            the_values[var] = value
+        for var, value in my_parameters.items():
+            Vars.update_vars(var, value, frame)
+        return traceit
+
+    if event == 'return':
+        InputStack.pop()
+        return traceit
+
+    if event == 'exception':
+        return traceit
+
+    variables = frame.f_locals
+    for var, value in variables.items():
+        Vars.update_vars(var, value, frame)
 
     return traceit
 
 # Convert a variable name into a grammar nonterminal
 def nonterminal(var):
     return "$" + var.upper()
- 
-# Pretty-print a grammar   
-def grammar_to_string(grammar):
-    s = ""
-    for key in grammar.keys():
-        s = s + key + " ::= "
-        s = s + " | ".join(grammar[key])
-        s = s + "\n"
-    return s
+
+def grammar_to_string(rules):
+    def djs_to_string(djs):
+        return "\n\t| ".join([i.replace('\n', '\n|\t') for i in sorted(djs)])
+    def fixline(key, rules):
+        fmt = "%s ::= %s" if len(rules) == 1 else "%s ::=\n\t| %s"
+        return fmt % (key, djs_to_string(rules))
+    return "\n".join([fixline(key, rules[key]) for key in rules.keys()])
 
 # Obtain a grammar for a specific input
-def get_grammar(input):
-    # Here's our initial grammar
-    grammar = {"$START": [input]}
-
-    # We obtain a mapping of variables to values
-    global the_input
-    the_input = input
-
-    global the_values
-    the_values = {}
-    
-    sys.settrace(traceit)
-    o = urlparse(the_input)
-    sys.settrace(None)
-
-    # Now for each (VAR, VALUE) found:
+def get_grammar(assignments):
+    # For each (VAR, VALUE) found:
     # 1. We search for occurrences of VALUE in the grammar
     # 2. We replace them by $VAR
     # 3. We add a new rule $VAR -> VALUE to the grammar
-    while True:
-        new_rules = []
-        for var in the_values.keys():
-            value = the_values[var]
-            for key in grammar.keys():
-                repl_alternatives = grammar[key]
-                for j in range(0, len(repl_alternatives)):
-                    repl = repl_alternatives[j]
+    my_grammar = collections.OrderedDict()
+    for var, value in assignments.items():
+        if my_grammar:
+            append = False
+            for key, repl_alternatives in my_grammar.items():
+                alt = set()
+                for repl in repl_alternatives:
                     if value in repl:
-                        # Found variable value in some grammar nonterminal
-                    
-                        # Replace value by nonterminal name
-                        alt_key = nonterminal(var)
-                        repl_alternatives[j] = repl.replace(value, alt_key)
-                        new_rules = new_rules + [(var, alt_key, value)]
-        
-        if len(new_rules) == 0:
-            break # Nothing to expand anymore
-            
-        for (var, alt_key, value) in new_rules:
-            # Add new rule to grammar
-            grammar[alt_key] = [value]
-
-            # Do not expand this again
-            del the_values[var]
-                        
-    return grammar
+                       repl = repl.replace(value, nonterminal(var))
+                       alt.add(repl)
+                       append = True
+                    else:
+                       alt.add(repl)
+                my_grammar[key] = alt
+            if append:
+                my_grammar[nonterminal(var)] = set([value])
+        else:
+            my_grammar[nonterminal(var)] = set([value])
+    return my_grammar
 
 # Merge two grammars G1 and G2
 def merge_grammars(g1, g2):
-    merged_grammar = g1
-    for key2 in g2.keys():
-        repl2 = g2[key2]
-        key_found = False
-        for key1 in g1.keys():
-            repl1 = g1[key1]
-            for repl in repl2:
-                if key1 == key2:
-                    key_found = True
-                    if repl not in repl1:
-                        # Extend existing rule
-                        merged_grammar[key1] = repl1 + [repl]
-                        
-        if not key_found:
-            # Add new rule
-            merged_grammar[key2] = repl2
+    merged_grammar = collections.OrderedDict()
+    for key in list(g1.keys()) + list(g2.keys()):
+       merged_grammar[key] = g1.get(key, set()) | g2.get(key, set())
     return merged_grammar
 
 # Get a grammar for multiple inputs
-def get_merged_grammar(inputs):
-    merged_grammar = None
-    for input in inputs:
-        grammar = get_grammar(input)
-        print(repr(input) + " ->\n" + grammar_to_string(grammar))
-        if merged_grammar is None:
-            merged_grammar = grammar
-        else:
-            merged_grammar = merge_grammars(merged_grammar, grammar)
-
+def get_merged_grammar(traces):
+    merged_grammar = {}
+    for t_v in traces:
+        grammar = get_grammar(t_v[1])
+        print(repr(t_v[0]) + " ->\n" + grammar_to_string(grammar))
+        merged_grammar = merge_grammars(merged_grammar, grammar)
     return merged_grammar
-    
+
 def apply_rule(term, rule):
     (old, new) = rule
-    # We replace the first occurrence; 
+    # We replace the first occurrence;
     # this could also be some random occurrence
     return term.replace(old, new, 1)
 
@@ -162,7 +200,7 @@ def produce(grammar):
         # All rules have the same chance;
         # this could also be weighted
         key = random.choice(list(grammar.keys()))
-        repl = random.choice(grammar[key])
+        repl = random.choice(list(grammar[key]))
         new_term = apply_rule(term, (key, repl))
         if new_term != term and new_term.count('$') < MAX_SYMBOLS:
             term = new_term
@@ -172,13 +210,21 @@ def produce(grammar):
             tries += 1
             if tries >= MAX_TRIES:
                 assert False, "Cannot expand " + term
-            
+
     return term
-        
+
 if __name__ == "__main__":
     # Infer grammar
-    grammar = get_merged_grammar(INPUTS)
+    traces = []
+    for i in INPUTS:
+        Vars.init(i)
+        sys.settrace(traceit)
+        o = urlparse(i)
+        sys.settrace(None)
+        traces.append((i, Vars.defs))
 
+    grammar = get_merged_grammar(traces)
+    print()
     # Output it
     print("Merged grammar ->\n" + grammar_to_string(grammar))
 
