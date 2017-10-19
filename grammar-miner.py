@@ -22,9 +22,13 @@
 # Changes:
 # - Ordered addition of new variables as new variables are defined
 #   (and slightly improved performance as a result)
-# - A variable is only checked for inclusion on the current parameters of the function.
-# - Qualified (class:fn) names to avoid conflicts with similar variable names in subroutines
+# - A variable is only checked for inclusion on the current parameters
+#   of the function.
+# - Qualified (class:fn) names to avoid conflicts with similar variable
+#   names in subroutines
 # - Simplified grammar merge
+# - Use string representation of objects to include more names in grammar
+#
 # TODO:
 # * Add string globals to the string parameters and variables
 #   being considered for rule replacements.
@@ -51,7 +55,6 @@
 #   i.e. take a single input and the grammar derived from it, then
 #   fuzz the input by using only a single choice and verify that
 #   the choice is actually correct.
-# * Use string representation, and add more kinds of variables
 
 import sys
 import random
@@ -80,10 +83,10 @@ class Vars:
         # return "%s:%s" % (class_name, var) # (frame.f_code.co_name, frame.f_lineno, var)
 
     def update_vars(var, value, frame):
-        if isinstance(value, str) and len(value) >= 2 and InputStack.has(value):
+        if len(str(value)) >= 2 and InputStack.has(str(value)):
            qual_var = Vars.varname(var, frame)
            if not Vars.defs.get(qual_var):
-               Vars.defs[qual_var] = value
+               Vars.defs[qual_var] = str(value)
 
 class InputStack:
     # The current input string
@@ -94,11 +97,9 @@ class InputStack:
 
     def push(inputs):
         if not InputStack.inputs:
-            my_inputs = {k:v for k,v in inputs.items()
-                        if isinstance(v, str)}
+            my_inputs = {k:str(v) for k,v in inputs.items()}
         else:
-            my_inputs = {k:v for k,v in inputs.items()
-                         if isinstance(v, str) and InputStack.has(v)}
+            my_inputs = {k:str(v) for k,v in inputs.items() if InputStack.has(str(v))}
         InputStack.inputs.append(my_inputs)
 
     def pop():
