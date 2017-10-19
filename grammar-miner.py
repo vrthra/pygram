@@ -73,10 +73,11 @@ class Vars:
         Vars.defs = collections.OrderedDict({'START':i})
 
     def varname(var, frame):
-        class_name = frame.f_code.co_name
-        if frame.f_code.co_name == '__new__':
-            class_name = frame.f_locals[frame.f_code.co_varnames[0]].__name__
-        return "%s:%s" % (class_name, var) # (frame.f_code.co_name, frame.f_lineno, var)
+        return var
+        # class_name = frame.f_code.co_name
+        # if frame.f_code.co_name == '__new__':
+        #   class_name = frame.f_locals[frame.f_code.co_varnames[0]].__name__
+        # return "%s:%s" % (class_name, var) # (frame.f_code.co_name, frame.f_lineno, var)
 
     def update_vars(var, value, frame):
         if isinstance(value, str) and len(value) >= 2 and InputStack.has(value):
