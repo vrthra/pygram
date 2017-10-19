@@ -58,7 +58,6 @@
 
 import sys
 import random
-import collections
 
 from urllib.parse import urlparse
 
@@ -73,7 +72,7 @@ class Vars:
     defs = None
 
     def init(i):
-        Vars.defs = collections.OrderedDict({'START':i})
+        Vars.defs = {'START':i}
 
     def varname(var, frame):
         return var
@@ -83,10 +82,11 @@ class Vars:
         # return "%s:%s" % (class_name, var) # (frame.f_code.co_name, frame.f_lineno, var)
 
     def update_vars(var, value, frame):
-        if len(str(value)) >= 2 and InputStack.has(str(value)):
+        sval = str(value)
+        if len(sval) >= 2 and InputStack.has(sval):
            qual_var = Vars.varname(var, frame)
            if not Vars.defs.get(qual_var):
-               Vars.defs[qual_var] = str(value)
+               Vars.defs[qual_var] = sval
 
 class InputStack:
     # The current input string
@@ -96,10 +96,9 @@ class InputStack:
         return any(val in var for var in InputStack.inputs[-1].values())
 
     def push(inputs):
-        if not InputStack.inputs:
-            my_inputs = {k:str(v) for k,v in inputs.items()}
-        else:
-            my_inputs = {k:str(v) for k,v in inputs.items() if InputStack.has(str(v))}
+        my_inputs = {k:str(v) for k,v in inputs.items()}
+        if InputStack.inputs:
+            my_inputs = {k:v for k,v in my_inputs.items() if InputStack.has(v)}
         InputStack.inputs.append(my_inputs)
 
     def pop():
@@ -149,39 +148,33 @@ def get_grammar(assignments):
     # 1. We search for occurrences of VALUE in the grammar
     # 2. We replace them by $VAR
     # 3. We add a new rule $VAR -> VALUE to the grammar
-    my_grammar = collections.OrderedDict()
+    my_grammar = {}
     for var, value in assignments.items():
-        if my_grammar:
-            append = False
-            for key, repl_alternatives in my_grammar.items():
-                alt = set()
-                for repl in repl_alternatives:
-                    if value in repl:
-                       repl = repl.replace(value, nonterminal(var))
-                       alt.add(repl)
-                       append = True
-                    else:
-                       alt.add(repl)
-                my_grammar[key] = alt
-            if append:
-                my_grammar[nonterminal(var)] = set([value])
-        else:
-            my_grammar[nonterminal(var)] = set([value])
+        nt_var = nonterminal(var)
+        append = False
+        for key, repl_alternatives in my_grammar.items():
+            alt = set()
+            for repl in repl_alternatives:
+                if value in repl:
+                   repl = repl.replace(value, nt_var)
+                   append = True
+                alt.add(repl)
+            my_grammar[key] = alt
+        if append or not my_grammar:
+            my_grammar[nt_var] = {value}
     return my_grammar
 
 # Merge two grammars G1 and G2
 def merge_grammars(g1, g2):
-    merged_grammar = collections.OrderedDict()
-    for key in list(g1.keys()) + list(g2.keys()):
-       merged_grammar[key] = g1.get(key, set()) | g2.get(key, set())
-    return merged_grammar
+    return {key: g1.get(key, set()) | g2.get(key, set())
+            for key in list(g1.keys()) + list(g2.keys())}
 
 # Get a grammar for multiple inputs
 def get_merged_grammar(traces):
     merged_grammar = {}
-    for t_v in traces:
-        grammar = get_grammar(t_v[1])
-        print(repr(t_v[0]) + " ->\n" + grammar_to_string(grammar))
+    for instr, defs in traces:
+        grammar = get_grammar(defs)
+        print(repr(instr) + " ->\n" + grammar_to_string(grammar))
         merged_grammar = merge_grammars(merged_grammar, grammar)
     return merged_grammar
 
