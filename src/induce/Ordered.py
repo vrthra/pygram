@@ -210,8 +210,8 @@ class OrderedSet(collections.MutableSet):
         self.discard(key)
         self.add(replacement)
 
-def merge_odicts(g1: collections.OrderedDict, g2: collections.OrderedDict) -> collections.OrderedDict:
-    g3 = collections.OrderedDict() # type: collections.OrderedDict[str, Any]
+def merge_odicts(g1: Dict[str, Any], g2: Dict[str, Any]) -> Dict[str, Any]:
+    g3 = {} # type: Dict[str, Any]
     for k in g1.keys():
         g3[k] = g1[k]
 

@@ -165,7 +165,7 @@ class Grammar:
             self.trace_stop()
             return Grammar.TRACE_STOP
 
-        myframe = collections.OrderedDict(sorted(jframe.items(), key=lambda x: x[0]))
+        myframe = dict(sorted(jframe.items(), key=lambda x: x[0]))
         if event == induce.TEvents.Enter:
             self.on_enter(myframe)
         elif event == induce.TEvents.Exit:

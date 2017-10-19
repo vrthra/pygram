@@ -2,7 +2,7 @@
 Grammar Refiner module
 """
 
-from typing import List, Any
+from typing import List, Any, Dict
 import sys
 import collections
 import re
@@ -13,7 +13,7 @@ def djs_to_string(djs: OrderedSet) -> str:
     """Convert disjoint set to string"""
     return "\n\t| ".join([i.replace('\n', '\n|\t') for i in sorted(djs)])
 
-def grammar_lst(rules: collections.OrderedDict) -> List[str]:
+def grammar_lst(rules: Dict[str, Any]) -> List[str]:
     """
     Convert a given set of rules to their string representation
     """
@@ -28,7 +28,7 @@ class Refiner:
     """
     def __init__(self) -> None:
         """ Initialize refiner with grammar """
-        self.my_grammar = collections.OrderedDict() # type: collections.OrderedDict
+        self.my_grammar = {} # type: Dict[str, Any]
         self.max_nth = {}
         self.defined_in = {}
         self.key_tracker = RFactory()
@@ -65,7 +65,7 @@ class Refiner:
         # deleting a key means first replacing the key's defs
         # in each of the rules, and lastly
         # deleting the key's def in the rule
-        new_rules = collections.OrderedDict()
+        new_rules = {}
         values = rules[key]
 
         for rkey, rvalues in rules.items():
@@ -84,7 +84,7 @@ class Refiner:
     def replace_in_all_rules(self, rules, kstr1, kstr2):
         str1 = str(kstr1)
         str2 = str(kstr2)
-        new_rules = collections.OrderedDict()
+        new_rules = {}
         for key, values in rules.items():
             new_values = OrderedSet()
             for value in values:
@@ -94,7 +94,7 @@ class Refiner:
         return new_rules
 
     def replace_key(self, rules, key1, key2):
-        new_rules = collections.OrderedDict()
+        new_rules = {}
         for key, values in rules.items():
             if key == key1:
                 new_rules[key2] = values

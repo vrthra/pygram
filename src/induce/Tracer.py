@@ -37,8 +37,8 @@ class Tracer:
 
     def __enter__(self) -> None:
         """ set hook """
-        event = [('event', induce.TEvents.Start), ('$input', self.indata)]
-        self.out(collections.OrderedDict(event))
+        event = {'event': induce.TEvents.Start, '$input': self.indata}
+        self.out(event)
         sys.settrace(self.method)
 
     def __exit__(self, typ: str, value: str, backtrace: Any) -> None:
@@ -70,11 +70,11 @@ class Tracer:
         return traceit
 
     def on_call(self, frame: Any,
-                _arg: Optional[str]) -> collections.OrderedDict:
+                _arg: Optional[str]) -> Dict[str, Any]:
         """
         Handle event method call
         """
-        frame_env = collections.OrderedDict()  # type: collections.OrderedDict
+        frame_env = {}  # type: Dict[str, Any]
         frame_env['event'] = induce.TEvents.Enter
         frame_env['context'] = Tracer.get_context(frame)
 
@@ -101,29 +101,28 @@ class Tracer:
         frame_env['parameters'] = scrub(flatten(my_parameters))
         frame_env['variables'] = scrub(flatten(my_variables))
 
-        myvars = collections.OrderedDict(
-            frame_env['parameters'])  # type: collections.OrderedDict
+        myvars = dict(frame_env['parameters'])  # type: Dict[str, Any]
         self.myvars_stack.append(myvars)
 
         return frame_env
 
     def on_return(self, _frame: Any,
-                  arg: Optional[str]) -> collections.OrderedDict:
+                  arg: Optional[str]) -> Dict[str, Any]:
         """
         Handle event method return
         """
-        frame_env = collections.OrderedDict()  # type: collections.OrderedDict
+        frame_env = {}  # type: Dict[str, Any]
         frame_env['event'] = induce.TEvents.Exit
         frame_env['arg'] = scrub(flatten({'<return>': arg}))
         self.myvars_stack.pop()
         return frame_env
 
     def on_line(self, frame: Any,
-                _arg: Optional[str]) -> collections.OrderedDict:
+                _arg: Optional[str]) -> Dict[str, Any]:
         """
         Handle event line (execution of a single statement)
         """
-        frame_env = collections.OrderedDict()  # type: collections.OrderedDict
+        frame_env = {}  # type: Dict[str, Any]
         frame_env['event'] = induce.TEvents.Line
 
         frame_env['variables'] = []
