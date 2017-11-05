@@ -17,7 +17,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
 import random
 import re
 import sys
@@ -90,15 +89,49 @@ html_grammar = {
         ["An item", "Another item"]
 }
 
-
 # A regular expression matching the nonterminals used in this grammar
-RE_NONTERMINAL = r'\$[a-zA-Z_]*'
+RE_NONTERMINAL = re.compile(r'(\$[a-zA-Z_]*)')
 
 # For debugging:
 DEBUG = False
 def log(s):
     if DEBUG:
         print(s() if callable(s) else s)
+
+
+# cache the function calls. We only cache a given call based on the
+# indicated argument number per function.
+def memoize(argnum):
+    def fn_wrap(function):
+        memo = {}
+        def wrapper(*args):
+            if args[argnum] in memo: return memo[args[argnum]]
+            rv = function(*args)
+            memo[args[argnum]] = rv
+            return rv
+        return wrapper
+    return fn_wrap
+
+# The minimum cost of expansion of this symbol
+@memoize(0) # memoize on the first arg
+def symbol_min_cost(nt, grammar, seen=set()):
+    expansions = grammar[nt]
+    return min(min_expansions(e, grammar, seen | {nt}) for e in expansions)
+
+# The minimum cost of expansion of this rule
+@memoize(0)
+def min_expansions(expansion, grammar, seen=set()):
+    symbols  = [s for s in re.findall(RE_NONTERMINAL, expansion)
+            if is_symbol(s)]
+    # at least one expansion has no variable to expand.
+    if not symbols: return 1
+
+    # if a variable present in the expansion is already in the stack, then it is
+    # recursion
+    if any(s in seen for s in symbols): return float('inf')
+    # the value of a expansion is the sum of all expandable variables inside + 1
+    return sum(symbol_min_cost(s, grammar, seen) for s in symbols) + 1
+
 
 # We create a derivation tree with nodes in the form (SYMBOL, CHILDREN)
 # where SYMBOL is either a nonterminal or terminal,
@@ -113,39 +146,20 @@ def log(s):
 #     expanded into $START -> $EXPR -> $EXPR + $TERM
 
 # Return an initialized tree
-def init_tree(grammar, start_symbol = "$START"):
+def init_tree(start_symbol = "$START"):
     return (start_symbol, None)
 
+def is_symbol(s):
+    return s[0] == '$'
+
 # Convert an expansion rule to children
+@memoize(0)
 def expansion_to_children(expansion):
     # print("Converting " + repr(expansion))
-
-    # All symbols in the expansion rule
-    symbols  = re.findall(RE_NONTERMINAL, expansion)
-    # print(symbols)
-
-    # Split the expansion rule by nonterminals,
-    # giving us a list of only terminals
-    children_without_symbols = re.split(RE_NONTERMINAL, expansion)
-    # print(children_without_symbols)
-
-    assert len(children_without_symbols) == len(symbols) + 1
-
-    # Put it all back together
-    children = []
-    i = 0
-    for c in children_without_symbols:
-        if len(c) > 0:
-            # Nonterminal
-            children.append((c, []))
-        if i < len(symbols):
-            # Symbol
-            children.append((symbols[i], None))
-            i += 1
-
-    # print("Converting " + repr(expansion) + " to " + repr(children))
-
-    return children
+    # strings contains all substrings -- both terminals and non-terminals such
+    # that ''.join(strings) == expansion
+    strings  = re.split(RE_NONTERMINAL, expansion)
+    return [(s, None) if is_symbol(s) else (s, []) for s in strings if s]
 
 # Expand a node
 def expand_node(node, grammar, prefer_shortest_expansion):
@@ -155,25 +169,14 @@ def expand_node(node, grammar, prefer_shortest_expansion):
 
     # Fetch the possible expansions from grammar...
     expansions = grammar[symbol]
-    possible_children = []
+    possible_children_with_len = [(expansion_to_children(expansion),
+                                   min_expansions(expansion, grammar, {symbol}))
+                                  for expansion in expansions]
+    min_len = min(s[1] for s in possible_children_with_len)
 
     # ...as well as the shortest ones
-    # TODO: A shorter "local" expansion does not imply we'll obtain a shorter
-    # "global" expansion.  Maybe a lookahead with a certain depth?
-    shortest_children = []
-    shortest_children_len = None
-
-    for expansion in expansions:
-        # Convert into children
-        possible_child = expansion_to_children(expansion)
-        possible_children.append(possible_child)
-
-        # Keep the list of shortest children
-        if shortest_children_len is None or len(possible_child) < shortest_children_len:
-            shortest_children     = [possible_child]
-            shortest_children_len = len(possible_child)
-        elif len(possible_child) == shortest_children_len:
-            shortest_children.append(possible_child)
+    shortest_children = [child for (child, clen) in possible_children_with_len
+                               if clen == min_len]
 
     # Pick a child randomly
     if prefer_shortest_expansion:
@@ -181,7 +184,7 @@ def expand_node(node, grammar, prefer_shortest_expansion):
     else:
         # TODO: Consider preferring children not expanded yet,
         # and other forms of grammar coverage (or code coverage)
-        children = random.choice(possible_children)
+        children, _ = random.choice(possible_children_with_len)
 
     # Return with a new list
     return (symbol, children)
@@ -196,6 +199,14 @@ def possible_expansions(tree):
     number_of_expansions = sum(possible_expansions(c) for c in children)
     return number_of_expansions
 
+# short circuit. any will return for the first item that is true without
+# evaluating the rest.
+def any_possible_expansions(tree):
+    (symbol, children) = tree
+    if children is None: return True
+
+    return any(any_possible_expansions(c) for c in children)
+
 # Expand the tree once
 def expand_tree_once(tree, grammar, prefer_shortest_expansion):
     (symbol, children) = tree
@@ -206,7 +217,7 @@ def expand_tree_once(tree, grammar, prefer_shortest_expansion):
     # print("Expanding tree " + repr(tree))
 
     # Find all children with possible expansions
-    expandable_children = [i for (i, c) in enumerate(children) if possible_expansions(c)]
+    expandable_children = [i for (i, c) in enumerate(children) if any_possible_expansions(c)]
 
     # Select a random child
     # TODO: Various heuristics for choosing a child here,
@@ -227,9 +238,8 @@ def expand_tree_once(tree, grammar, prefer_shortest_expansion):
     return new_tree
 
 # Keep on applying productions
-# TODO: We limit production by the number of symbols;
+# We limit production by the number of minimum expansions
 # alternate limits (e.g. length of overall string) are possible too
-# TODO: One may also want a _minimum_ length or number of symbols
 def expand_tree(tree, grammar, max_symbols):
     # Stage 1: Expand until we reach the max number of symbols
     log("Expanding")
@@ -239,7 +249,7 @@ def expand_tree(tree, grammar, max_symbols):
 
     # Stage 2: Keep on expanding, but now focus on the shortest expansions
     log("Closing")
-    while possible_expansions(tree) > 0:
+    while any_possible_expansions(tree):
         tree = expand_tree_once(tree, grammar, True)
         log(lambda: all_terminals(tree))
 
@@ -263,7 +273,7 @@ def all_terminals(tree):
 # All together
 def produce(grammar, max_symbols = 10):
     # Create an initial derivation tree
-    tree = init_tree(grammar)
+    tree = init_tree()
     # print(tree)
 
     # Expand all nonterminals
