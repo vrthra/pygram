@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # Grammar-based Fuzzing
 
 # This program is copyright (c) 2017 Saarland University.
@@ -17,18 +17,24 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import random
 
+import random
+import re
+import sys
+import json
+
+# We define a grammar as mappings of nonterminals into possible expansions.
+# Possible expansions come as a list of alternatives
 term_grammar = {
     "$START":
         ["$EXPR"],
 
     "$EXPR":
         ["$EXPR + $TERM", "$EXPR - $TERM", "$TERM"],
-    
+
     "$TERM":
         ["$TERM * $FACTOR", "$TERM / $FACTOR", "$FACTOR"],
-    
+
     "$FACTOR":
         ["+$FACTOR", "-$FACTOR", "($EXPR)", "$INTEGER", "$INTEGER.$INTEGER"],
 
@@ -42,7 +48,7 @@ term_grammar = {
 html_grammar = {
     "$START":
         ["$DOCUMENT"],
-    
+
     "$DOCUMENT":
         ["$DOCTYPE$HTML"],
 
@@ -55,7 +61,7 @@ html_grammar = {
 
     "$HEAD":
         ["<HEAD>$TITLE</HEAD>\n"],
-        
+
     "$TITLE":
         ["<TITLE>A generated document</TITLE>\n"],
 
@@ -71,12 +77,12 @@ html_grammar = {
     "$A_HEADER":
         ["<H1>A header.</H1>", "<H1>Another header.</H1>"],
 
-    "$LIST": 
+    "$LIST":
         ["<UL>$ITEMS</UL>", "<OL>$ITEMS</OL>"],
-    
+
     "$ITEMS":
         ["$AN_ITEM", "$AN_ITEM$ITEMS"],
-    
+
     "$AN_ITEM":
         ["<LI>$TEXT</LI>\n"],
 
@@ -85,36 +91,193 @@ html_grammar = {
 }
 
 
-def apply_rule(term, rule):
-    (old, new) = rule
-    # We replace the first occurrence; 
-    # this could also be some random occurrence
-    return term.replace(old, new, 1)
+# A regular expression matching the nonterminals used in this grammar
+RE_NONTERMINAL = r'\$[a-zA-Z_]*'
 
-MAX_SYMBOLS = 5
-MAX_TRIES = 500
+# For debugging:
+DEBUG = False
+def log(s):
+    if DEBUG:
+        print(s() if callable(s) else s)
 
-def produce(grammar):
-    term = "$START"
-    tries = 0
+# We create a derivation tree with nodes in the form (SYMBOL, CHILDREN)
+# where SYMBOL is either a nonterminal or terminal,
+# and CHILDREN is
+# - a list of children (for nonterminals)
+# - an empty list for terminals
+# - None for nonterminals that are yet to be expanded
+# Example:
+# ("$START", None) - the initial tree with just the root node
+# ("$START", [("$EXPR", None)]) - expanded once into $START -> $EXPR
+# ("$START", [("$EXPR", [("$EXPR", None]), (" + ", []]), ("$TERM", None])]) -
+#     expanded into $START -> $EXPR -> $EXPR + $TERM
 
-    while term.count('$') > 0:
-        # All rules have the same chance;
-        # this could also be weighted
-        key = random.choice(grammar.keys())
-        repl = random.choice(grammar[key])
-        new_term = apply_rule(term, (key, repl))
-        if new_term != term and new_term.count('$') < MAX_SYMBOLS:
-            term = new_term
-            # print(term)
-            tries = 0
-        else:
-            tries += 1
-            if tries >= MAX_TRIES:
-                assert False, "Cannot expand " + term
-            
-    return term
-        
+# Return an initialized tree
+def init_tree(grammar, start_symbol = "$START"):
+    return (start_symbol, None)
+
+# Convert an expansion rule to children
+def expansion_to_children(expansion):
+    # print("Converting " + repr(expansion))
+
+    # All symbols in the expansion rule
+    symbols  = re.findall(RE_NONTERMINAL, expansion)
+    # print(symbols)
+
+    # Split the expansion rule by nonterminals,
+    # giving us a list of only terminals
+    children_without_symbols = re.split(RE_NONTERMINAL, expansion)
+    # print(children_without_symbols)
+
+    assert len(children_without_symbols) == len(symbols) + 1
+
+    # Put it all back together
+    children = []
+    i = 0
+    for c in children_without_symbols:
+        if len(c) > 0:
+            # Nonterminal
+            children.append((c, []))
+        if i < len(symbols):
+            # Symbol
+            children.append((symbols[i], None))
+            i += 1
+
+    # print("Converting " + repr(expansion) + " to " + repr(children))
+
+    return children
+
+# Expand a node
+def expand_node(node, grammar, prefer_shortest_expansion):
+    (symbol, children) = node
+    # print("Expanding " + repr(symbol))
+    assert children is None
+
+    # Fetch the possible expansions from grammar...
+    expansions = grammar[symbol]
+    possible_children = []
+
+    # ...as well as the shortest ones
+    # TODO: A shorter "local" expansion does not imply we'll obtain a shorter
+    # "global" expansion.  Maybe a lookahead with a certain depth?
+    shortest_children = []
+    shortest_children_len = None
+
+    for expansion in expansions:
+        # Convert into children
+        possible_child = expansion_to_children(expansion)
+        possible_children.append(possible_child)
+
+        # Keep the list of shortest children
+        if shortest_children_len is None or len(possible_child) < shortest_children_len:
+            shortest_children     = [possible_child]
+            shortest_children_len = len(possible_child)
+        elif len(possible_child) == shortest_children_len:
+            shortest_children.append(possible_child)
+
+    # Pick a child randomly
+    if prefer_shortest_expansion:
+        children = random.choice(shortest_children)
+    else:
+        # TODO: Consider preferring children not expanded yet,
+        # and other forms of grammar coverage (or code coverage)
+        children = random.choice(possible_children)
+
+    # Return with a new list
+    return (symbol, children)
+
+# Count possible expansions -
+# that is, the number of (SYMBOL, None) nodes in the tree
+def possible_expansions(tree):
+    (symbol, children) = tree
+    if children is None:
+        return 1
+
+    number_of_expansions = sum(possible_expansions(c) for c in children)
+    return number_of_expansions
+
+# Expand the tree once
+def expand_tree_once(tree, grammar, prefer_shortest_expansion):
+    (symbol, children) = tree
+    if children is None:
+        # Expand this node
+        return expand_node(tree, grammar, prefer_shortest_expansion)
+
+    # print("Expanding tree " + repr(tree))
+
+    # Find all children with possible expansions
+    expandable_children = [i for (i, c) in enumerate(children) if possible_expansions(c)]
+
+    # Select a random child
+    # TODO: Various heuristics for choosing a child here,
+    # e.g. grammar or code coverage
+    child_to_be_expanded = random.choice(expandable_children)
+
+    # Expand it
+    new_child = expand_tree_once(children[child_to_be_expanded], grammar, prefer_shortest_expansion)
+
+    new_children = (children[:child_to_be_expanded] +
+                    [new_child] +
+                    children[child_to_be_expanded + 1:])
+
+    new_tree = (symbol, new_children)
+
+    # print("Expanding tree " + repr(tree) + " into " + repr(new_tree))
+
+    return new_tree
+
+# Keep on applying productions
+# TODO: We limit production by the number of symbols;
+# alternate limits (e.g. length of overall string) are possible too
+# TODO: One may also want a _minimum_ length or number of symbols
+def expand_tree(tree, grammar, max_symbols):
+    # Stage 1: Expand until we reach the max number of symbols
+    log("Expanding")
+    while 0 < possible_expansions(tree) < max_symbols:
+        tree = expand_tree_once(tree, grammar, False)
+        log(lambda: all_terminals(tree))
+
+    # Stage 2: Keep on expanding, but now focus on the shortest expansions
+    log("Closing")
+    while possible_expansions(tree) > 0:
+        tree = expand_tree_once(tree, grammar, True)
+        log(lambda: all_terminals(tree))
+
+    return tree
+
+# The tree as a string
+def all_terminals(tree):
+    (symbol, children) = tree
+    if children is None:
+        # This is a nonterminal symbol not expanded yet
+        return symbol
+
+    if len(children) == 0:
+        # This is a terminal symbol
+        return symbol
+
+    # This is an expanded symbol:
+    # Concatenate all terminal symbols from all children
+    return ''.join([all_terminals(c) for c in children])
+
+# All together
+def produce(grammar, max_symbols = 10):
+    # Create an initial derivation tree
+    tree = init_tree(grammar)
+    # print(tree)
+
+    # Expand all nonterminals
+    tree = expand_tree(tree, grammar, max_symbols)
+    # print(tree)
+
+    # Return the string
+    return all_terminals(tree)
+
 if __name__ == "__main__":
-    print(produce(term_grammar))
-        
+    # The grammar to use
+    with open(sys.argv[1], 'r') as input:
+        grammar = json.load(input)
+        #for obj in grammar: print(obj)
+
+        for i in range(1, 20):
+            print(produce(grammar))
