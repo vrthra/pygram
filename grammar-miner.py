@@ -58,6 +58,7 @@
 
 import sys
 import random
+import taint
 
 from urllib.parse import urlparse
 
@@ -82,24 +83,31 @@ class Vars:
         # return "%s:%s" % (class_name, var) # (frame.f_code.co_name, frame.f_lineno, var)
 
     def update_vars(var, value, frame):
-        sval = str(value)
+        if not isinstance(value, str): return
+        sval = value
         if len(sval) >= 2 and InputStack.has(sval):
            qual_var = Vars.varname(var, frame)
            if not Vars.defs.get(qual_var):
                Vars.defs[qual_var] = sval
+
+def tainted(v):
+    return isinstance(v, taint.tstr)
+
 
 class InputStack:
     # The current input string
     inputs = []
 
     def has(val):
-        return any(val in var for var in InputStack.inputs[-1].values())
+        return tainted(val) and any(val in var for var in InputStack.inputs[-1].values())
 
     def push(inputs):
-        my_inputs = {k:str(v) for k,v in inputs.items()}
         if InputStack.inputs:
-            my_inputs = {k:v for k,v in my_inputs.items() if InputStack.has(v)}
-        InputStack.inputs.append(my_inputs)
+            my_inputs = {k:v for k,v in inputs.items() if InputStack.has(v)}
+            InputStack.inputs.append(my_inputs)
+        else:
+            my_inputs = {k:taint.tstr(v) for k,v in inputs.items() if isinstance(v, str)}
+            InputStack.inputs.append(my_inputs)
 
     def pop():
         return InputStack.inputs.pop()
@@ -215,7 +223,7 @@ if __name__ == "__main__":
         Vars.init(i)
         oldtrace = sys.gettrace()
         sys.settrace(traceit)
-        o = urlparse(i)
+        o = urlparse(taint.tstr(i).taint())
         sys.settrace(oldtrace)
         traces.append((i, Vars.defs))
 
