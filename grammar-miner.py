@@ -213,9 +213,10 @@ if __name__ == "__main__":
     traces = []
     for i in INPUTS:
         Vars.init(i)
+        oldtrace = sys.gettrace()
         sys.settrace(traceit)
         o = urlparse(i)
-        sys.settrace(None)
+        sys.settrace(oldtrace)
         traces.append((i, Vars.defs))
 
     grammar = get_merged_grammar(traces)
