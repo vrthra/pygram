@@ -28,6 +28,10 @@
 #   names in subroutines
 # - Simplified grammar merge
 # - Use string representation of objects to include more names in grammar
+# - Use simple taint-tracing to restrict the
+#   number of rules in consideration when trying to do the
+#   non-terminal replacement.
+
 #
 # TODO:
 # * Add string globals to the string parameters and variables
@@ -42,11 +46,6 @@
 # * When applying replace a variable value with the non-terminal
 #   variable name, ensure that the replacement is done only on the
 #   variables that are visible to the current variable.
-# * Use simple taint-tracing or dataflow analysis to restrict the
-#   number of rules in consideration when trying to do the
-#   non-terminal replacement.
-# * Use leave-n-out strategy to get the best non-terminal
-#   replacements by avoiding spurious non-terminal inclusions.
 # * When multiple matches are found for a variable value inside
 #   a rule, include all combinations of the variable replacements
 #   as rule choices.
@@ -58,7 +57,7 @@
 
 import sys
 import random
-import taint
+import inspect
 
 from urllib.parse import urlparse
 
@@ -67,6 +66,54 @@ INPUTS = [
     'https://www.cispa.saarland:80/bar',
     'http://foo@google.com:8080/bar?q=r#ref2',
 ]
+
+class tstr(str):
+    """Basic tainting class"""
+    def __new__(cls, value, parent=None):
+        assert parent is not None
+        s = str.__new__(cls, value)
+        s._parent = parent
+        return s
+
+    def __radd__(self, other): return tstr(str.__add__(other, self), self)
+    def __repr__(self): return self.__class__.__name__ + str.__repr__(self)
+    def i(self): return id(self)
+    def parent(self): return self._parent
+
+    def is_child_of(self, other):
+        s = self
+        while type(s) == tstr:
+            if other.i() ==  s.i(): return True
+            s = s.parent()
+        return False
+
+    def __iter__(self):
+        for i in str.__iter__(self): yield tstr(i, self)
+
+def make_strtuple_wrapper(fun):
+    def proxy(*a, **kw): return tuple(tstr(l, a[0]) for l in fun(*a, **kw))
+    return proxy
+
+def make_strlst_wrapper(fun):
+    def proxy(*a, **kw): return [tstr(l, a[0]) for l in fun(*a, **kw)]
+    return proxy
+
+def make_str_wrapper(fun):
+    def proxy(*a, **kw): return tstr(fun(*a, **kw), a[0])
+    return proxy
+
+for name, fn in inspect.getmembers(str, callable):
+    tuple_names = ['partition', 'rpartition']
+    bool_names = ['__eq__', '__lt__', '__gt__', '__contains__']
+    list_names = ['rsplit', 'splitlines', 'split']
+    repr_names =  ['__repr__', '__str__', '__hash__']
+    if name not in ['__class__', '__new__', '__init__', '__getattribute__',
+            '__init_subclass__', '__subclasshook__', '__setattr__',
+            '__len__', 'find', 'rfind', '__iter__'
+            ] + tuple_names + list_names + bool_names + repr_names:
+        setattr(tstr, name, make_str_wrapper(fn))
+    elif name in list_names: setattr(tstr, name, make_strlst_wrapper(fn))
+    elif name in tuple_names: setattr(tstr, name, make_strtuple_wrapper(fn))
 
 # We store individual variable/value pairs here
 class Vars:
@@ -77,10 +124,6 @@ class Vars:
 
     def varname(var, frame):
         return var
-        # class_name = frame.f_code.co_name
-        # if frame.f_code.co_name == '__new__':
-        #   class_name = frame.f_locals[frame.f_code.co_varnames[0]].__name__
-        # return "%s:%s" % (class_name, var) # (frame.f_code.co_name, frame.f_lineno, var)
 
     def update_vars(var, value, frame):
         if not isinstance(value, str): return
@@ -90,23 +133,21 @@ class Vars:
            if not Vars.defs.get(qual_var):
                Vars.defs[qual_var] = sval
 
-def tainted(v):
-    return isinstance(v, taint.tstr)
-
+def tainted(v): return isinstance(v, tstr)
 
 class InputStack:
     # The current input string
     inputs = []
 
     def has(val):
-        return tainted(val) and any(val in var for var in InputStack.inputs[-1].values())
+        return tainted(val) and any(val.is_child_of(var) for var in InputStack.inputs[-1].values())
 
     def push(inputs):
         if InputStack.inputs:
             my_inputs = {k:v for k,v in inputs.items() if InputStack.has(v)}
             InputStack.inputs.append(my_inputs)
         else:
-            my_inputs = {k:taint.tstr(v) for k,v in inputs.items() if isinstance(v, str)}
+            my_inputs = {k:v for k,v in inputs.items() if type(v) is tstr}
             InputStack.inputs.append(my_inputs)
 
     def pop():
@@ -115,6 +156,7 @@ class InputStack:
 # We record all string variables and values occurring during execution
 def traceit(frame, event, arg):
     if event == 'call':
+        fun, fn = frame.f_code.co_name, frame.f_code.co_filename
         param_names = [frame.f_code.co_varnames[i]
                        for i in range(frame.f_code.co_argcount)]
         my_parameters = {k: v for k, v in frame.f_locals.items()
@@ -223,7 +265,7 @@ if __name__ == "__main__":
         Vars.init(i)
         oldtrace = sys.gettrace()
         sys.settrace(traceit)
-        o = urlparse(taint.tstr(i).taint())
+        o = urlparse(tstr(i, '<:>'))
         sys.settrace(oldtrace)
         traces.append((i, Vars.defs))
 
