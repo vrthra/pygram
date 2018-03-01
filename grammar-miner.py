@@ -145,6 +145,12 @@ def grammar_to_string(rules):
         return fmt % (key, djs_to_string(rules))
     return "\n".join([fixline(key, rules[key]) for key in rules.keys()])
 
+def taint_replace(sentence, orig, repl):
+    # get starting point.
+    start = sentence._taint.index(orig._taint[0])
+    res = sentence[0:start] + repl + sentence[len(orig):]
+    return res
+
 # Obtain a grammar for a specific input
 def get_grammar(assignments):
     # For each (VAR, VALUE) found:
@@ -158,9 +164,11 @@ def get_grammar(assignments):
         for key, repl_alternatives in my_grammar.items():
             alt = set()
             for repl in repl_alternatives:
-                if type(value) is tstr.tstr and value in repl:
-                   repl = repl.replace(value, nt_var)
-                   append = True
+                if type(value) is tstr.tstr:
+                    # if value taint is a proper subset of repl taint
+                    if set(value._taint) < set(repl._taint):
+                       repl = taint_replace(repl, value, nt_var)
+                       append = True
                 elif type(value) is str and value in repl:
                     assert False
                 alt.add(repl)
