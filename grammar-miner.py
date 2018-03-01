@@ -60,12 +60,17 @@ import sys
 import random
 import tstr
 
-from url import URL
+import microjson
 
 INPUTS = [
-    'http://www.st.cs.uni-saarland.de/zeller#ref',
-    'https://www.cispa.saarland:80/bar',
-    'http://foo@google.com:8080/bar?q=r#ref2',
+    '1',
+    '2',
+    '3',
+    'true',
+    'false',
+   'null',
+   '"hello"',
+   '{"hello":"world"}'
 ]
 
 # We store individual variable/value pairs here
@@ -89,13 +94,30 @@ class Vars:
         # if frame.f_code.co_name == '__new__':
         #   class_name = frame.f_locals[frame.f_code.co_varnames[0]].__name__
         # return "%s:%s" % (class_name, var) # (frame.f_code.co_name, frame.f_lineno, var)
-        return "%s:%s:%s(%d)" % (frame.f_code.co_name, frame.f_lineno, var, n)
+        #return "%s:%s:%s(%d)" % (frame.f_code.co_name, frame.f_lineno, var, n)
+        return "%s:%s(%d)" % (frame.f_code.co_name, var, n)
 
     def update_vars(var, value, frame):
-        if InputStack.has(value):
+        if get_t(value) and len(get_t(value)) > 0 and InputStack.has(value):
            qual_var = Vars.varname(var, frame)
            if not Vars.defs.get(qual_var):
                Vars.defs[qual_var] = value
+           else:
+               print("has:", var, qual_var, value)
+        else:
+            print("Dropping", var, value, value.__class__)
+            print("Because:", get_t(value) and len(get_t(value)) > 0, InputStack.has(value))
+
+def goodlen(v):
+    if type(v) is tstr.tstr: return len(v)
+    if '_tstr' in v.__dict__: return len(v._tstr)
+    assert False
+
+
+def get_t(v):
+    if type(v) is tstr.tstr: return v
+    if hasattr(v, '__dict__') and '_tstr' in v.__dict__: return get_t(v._tstr)
+    return None
 
 class InputStack:
     # The current input string
@@ -105,9 +127,11 @@ class InputStack:
         for var in InputStack.inputs[-1].values():
             if taint_include(val, var):
                 return True
+        return False
+
 
     def push(inputs):
-        my_inputs = {k:v for k,v in inputs.items() if type(v) is tstr.tstr}
+        my_inputs = {k:v for k,v in inputs.items() if get_t(v)}
         if InputStack.inputs:
             my_inputs = {k:v for k,v in my_inputs.items() if InputStack.has(v)}
         InputStack.inputs.append(my_inputs)
@@ -123,6 +147,7 @@ def traceit(frame, event, arg):
                        for i in range(frame.f_code.co_argcount)]
         my_parameters = {k: v for k, v in frame.f_locals.items()
                          if k in param_names}
+        print(" |" * (len(InputStack.inputs)+1), ">", frame.f_code.co_name, ':', ','.join(map(str,zip(my_parameters.keys(), my_parameters.values()))))
 
         InputStack.push(my_parameters)
 
@@ -130,15 +155,17 @@ def traceit(frame, event, arg):
             Vars.update_vars(var, value, frame)
         return traceit
 
-    if event == 'return':
+    elif event == 'return':
+        print(" |" * (len(InputStack.inputs)),"<", frame.f_code.co_name)
         InputStack.pop()
         return traceit
 
-    if event == 'exception':
+    elif event == 'exception':
         return traceit
 
     variables = frame.f_locals
     for var, value in variables.items():
+        print(var, value)
         Vars.update_vars(var, value, frame)
 
     return traceit
@@ -156,16 +183,18 @@ def grammar_to_string(rules):
     return "\n".join([fixline(key, rules[key]) for key in rules.keys()])
 
 def taint_include(a, b):
-    assert type(a) is not str
-    assert type(b) is not str
-    if type(a) is tstr.tstr and type(b) is tstr.tstr:
-        return set(a._taint) <= set(b._taint)
+    #assert type(a) is not str
+    #assert type(b) is not str
+    if get_t(a) and get_t(b):
+        return set(get_t(a)._taint) <= set(get_t(b)._taint)
     return False
 
 def taint_replace(sentence, orig, repl):
+    gsentence = get_t(sentence)
     # get starting point.
-    start = sentence._taint.index(orig._taint[0])
-    res = sentence[0:start] + repl + sentence[len(orig):]
+    start = gsentence._taint.index(get_t(orig)._taint[0])
+    stop = gsentence._taint.index(get_t(orig)._taint[-1])
+    res = gsentence[0:start] + repl + gsentence[start + len(get_t(orig)):]
     return res
 
 # Obtain a grammar for a specific input
@@ -181,7 +210,7 @@ def get_grammar(assignments):
         for key, repl_alternatives in my_grammar.items():
             alt = set()
             for repl in repl_alternatives:
-                if type(value) is tstr.tstr:
+                if get_t(value):
                     # if value taint is a proper subset of repl taint
                     if taint_include(value, repl):
                        repl = taint_replace(repl, value, nt_var)
@@ -246,7 +275,7 @@ if __name__ == "__main__":
         Vars.init(i)
         oldtrace = sys.gettrace()
         sys.settrace(traceit)
-        o = URL(i)
+        o = microjson.from_json(i)
         sys.settrace(oldtrace)
         traces.append((i, Vars.defs))
 
@@ -256,6 +285,6 @@ if __name__ == "__main__":
     print("Merged grammar ->\n" + grammar_to_string(grammar))
 
     # Fuzz a little
-    print("Fuzzing ->")
-    for i in range(1, 10):
-        print(produce(grammar))
+    #print("Fuzzing ->")
+    #for i in range(1, 10):
+    #    print(produce(grammar))
