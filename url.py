@@ -132,28 +132,28 @@ class URL:
                         host = nhost[0,ind+1]
                         if (not isIPv6LiteralAddress(host[1: ind])):
                             raise Exception("Invalid host: "+ host)
-                        port = -1
+                        port = ''
                         if (len(nhost) > ind+1):
                             if (nhost[ind+1] == ':'):
                                 ind += 1 
                                 # port can be null according to RFC2396
                                 if (len(nhost) > (ind + 1)):
-                                    port = int(nhost[ind+1:])
+                                    port = nhost[ind+1:]
                             else:
                                 raise Exception("Invalid authority field: " + authority)
                     else:
                         raise Exception( "Invalid authority field: " + authority)
                 else:
                     ind = host.find(':')
-                    port = -1
+                    port = ''
                     if (ind >= 0):
                         # port can be null according to RFC2396
                         if (len(host) > (ind + 1)):
-                            port = int(host[ind + 1:])
+                            port = host[ind + 1:]
                         host = host[0: ind]
             else:
                 host = ""
-            if (port < -1):
+            if (port and int(port) < -1):
                 raise Exception("Invalid port number :" + port)
             start = i
             # If the authority is defined then the path is defined by the
@@ -258,7 +258,7 @@ class URL:
             return ("protocol:%s host:%s port:%s file:%s path:%s query:%s ref:%s" % (
                 repr(self.protocol), repr(self.host), repr(self.port), repr(self.file), repr(self.path), repr(self.query), repr(self.ref)))
         except Exception as e:
-            return str(e)
+            return "Error: %s" % str(e)
 
 class Parts:
     __slots__ = [
