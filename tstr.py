@@ -28,6 +28,7 @@ class Instr:
         self.opA = a
         self.opB = b
         self.op = o
+
     def o(self):
         if self.op == Op.EQ:
             return 'eq'
@@ -586,7 +587,7 @@ class tstr(str):
     # returns int
     def find(self, sub, start=None, end=None):
         global Comparisons
-        Comparisons.append(Instr(Op.FIND_STR, self, sep))
+        Comparisons.append(Instr(Op.FIND_STR, self, sub))
         return super().find(sub, start, end)
 
     # returns int

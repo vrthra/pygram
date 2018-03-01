@@ -58,8 +58,9 @@
 
 import sys
 import random
+import tstr
 
-from urllib.parse import urlparse
+from url import URL
 
 INPUTS = [
     'http://www.st.cs.uni-saarland.de/zeller#ref',
@@ -86,7 +87,7 @@ class Vars:
         if len(sval) >= 2 and InputStack.has(sval):
            qual_var = Vars.varname(var, frame)
            if not Vars.defs.get(qual_var):
-               Vars.defs[qual_var] = sval
+               Vars.defs[qual_var] = value
 
 class InputStack:
     # The current input string
@@ -106,11 +107,13 @@ class InputStack:
 
 # We record all string variables and values occurring during execution
 def traceit(frame, event, arg):
+    if 'tstr.py' in frame.f_code.co_filename: return traceit
     if event == 'call':
         param_names = [frame.f_code.co_varnames[i]
                        for i in range(frame.f_code.co_argcount)]
         my_parameters = {k: v for k, v in frame.f_locals.items()
                          if k in param_names}
+
         InputStack.push(my_parameters)
 
         for var, value in my_parameters.items():
@@ -155,9 +158,11 @@ def get_grammar(assignments):
         for key, repl_alternatives in my_grammar.items():
             alt = set()
             for repl in repl_alternatives:
-                if value in repl:
+                if type(value) is tstr.tstr and value in repl:
                    repl = repl.replace(value, nt_var)
                    append = True
+                elif type(value) is str and value in repl:
+                    assert False
                 alt.add(repl)
             my_grammar[key] = alt
         if append or not my_grammar:
@@ -211,11 +216,12 @@ def produce(grammar):
 if __name__ == "__main__":
     # Infer grammar
     traces = []
-    for i in INPUTS:
+    for _i in INPUTS:
+        i = tstr.tstr(_i)
         Vars.init(i)
         oldtrace = sys.gettrace()
         sys.settrace(traceit)
-        o = urlparse(i)
+        o = URL(i)
         sys.settrace(oldtrace)
         traces.append((i, Vars.defs))
 
