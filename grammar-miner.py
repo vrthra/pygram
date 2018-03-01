@@ -75,16 +75,24 @@ class Vars:
     def init(i):
         Vars.defs = {'START':i}
 
+    def nframes(frame):
+        i = 0
+        f = frame
+        while f.f_back:
+            i+=1
+            f = f.f_back
+        return i
+
     def varname(var, frame):
-        return var
+        n = Vars.nframes(frame)
         # class_name = frame.f_code.co_name
         # if frame.f_code.co_name == '__new__':
         #   class_name = frame.f_locals[frame.f_code.co_varnames[0]].__name__
         # return "%s:%s" % (class_name, var) # (frame.f_code.co_name, frame.f_lineno, var)
+        return "%s:%s:%s(%d)" % (frame.f_code.co_name, frame.f_lineno, var, n)
 
     def update_vars(var, value, frame):
-        sval = str(value)
-        if len(sval) >= 2 and InputStack.has(sval):
+        if InputStack.has(value):
            qual_var = Vars.varname(var, frame)
            if not Vars.defs.get(qual_var):
                Vars.defs[qual_var] = value
@@ -94,10 +102,12 @@ class InputStack:
     inputs = []
 
     def has(val):
-        return any(val in var for var in InputStack.inputs[-1].values())
+        for var in InputStack.inputs[-1].values():
+            if taint_include(val, var):
+                return True
 
     def push(inputs):
-        my_inputs = {k:str(v) for k,v in inputs.items()}
+        my_inputs = {k:v for k,v in inputs.items() if type(v) is tstr.tstr}
         if InputStack.inputs:
             my_inputs = {k:v for k,v in my_inputs.items() if InputStack.has(v)}
         InputStack.inputs.append(my_inputs)
@@ -145,6 +155,13 @@ def grammar_to_string(rules):
         return fmt % (key, djs_to_string(rules))
     return "\n".join([fixline(key, rules[key]) for key in rules.keys()])
 
+def taint_include(a, b):
+    assert type(a) is not str
+    assert type(b) is not str
+    if type(a) is tstr.tstr and type(b) is tstr.tstr:
+        return set(a._taint) <= set(b._taint)
+    return False
+
 def taint_replace(sentence, orig, repl):
     # get starting point.
     start = sentence._taint.index(orig._taint[0])
@@ -166,7 +183,7 @@ def get_grammar(assignments):
             for repl in repl_alternatives:
                 if type(value) is tstr.tstr:
                     # if value taint is a proper subset of repl taint
-                    if set(value._taint) < set(repl._taint):
+                    if taint_include(value, repl):
                        repl = taint_replace(repl, value, nt_var)
                        append = True
                 elif type(value) is str and value in repl:
