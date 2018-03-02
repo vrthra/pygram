@@ -60,6 +60,8 @@ import sys
 import random
 import tstr
 
+def brk(): import pudb; pudb.set_trace()
+
 import microjson
 
 INPUTS = [
@@ -68,10 +70,12 @@ INPUTS = [
     '3',
     'true',
     'false',
-   'null',
-   '"hello"',
+    'null',
+    '"hello"',
    '{"hello":"world"}'
 ]
+
+Current = None
 
 # We store individual variable/value pairs here
 class Vars:
@@ -95,18 +99,19 @@ class Vars:
         #   class_name = frame.f_locals[frame.f_code.co_varnames[0]].__name__
         # return "%s:%s" % (class_name, var) # (frame.f_code.co_name, frame.f_lineno, var)
         #return "%s:%s:%s(%d)" % (frame.f_code.co_name, frame.f_lineno, var, n)
-        return "%s:%s(%d)" % (frame.f_code.co_name, var, n)
+        # return "%s:%s(%d)" % (frame.f_code.co_name, var, n)
+        return "<%s:%s>" % (frame.f_code.co_name, var)
 
     def update_vars(var, value, frame):
         if get_t(value) and len(get_t(value)) > 0 and InputStack.has(value):
            qual_var = Vars.varname(var, frame)
            if not Vars.defs.get(qual_var):
                Vars.defs[qual_var] = value
-           else:
-               print("has:", var, qual_var, value)
-        else:
-            print("Dropping", var, value, value.__class__)
-            print("Because:", get_t(value) and len(get_t(value)) > 0, InputStack.has(value))
+           #else:
+               #print("has:", var, qual_var, value)
+        #else:
+            #print("Dropping", var, value, value.__class__)
+            #print("Because:", get_t(value) and len(get_t(value)) > 0, InputStack.has(value))
 
 def goodlen(v):
     if type(v) is tstr.tstr: return len(v)
@@ -147,7 +152,7 @@ def traceit(frame, event, arg):
                        for i in range(frame.f_code.co_argcount)]
         my_parameters = {k: v for k, v in frame.f_locals.items()
                          if k in param_names}
-        print(" |" * (len(InputStack.inputs)+1), ">", frame.f_code.co_name, ':', ','.join(map(str,zip(my_parameters.keys(), my_parameters.values()))))
+        #print(" |" * (len(InputStack.inputs)+1), ">", frame.f_code.co_name, ':', ','.join(map(str,zip(my_parameters.keys(), my_parameters.values()))))
 
         InputStack.push(my_parameters)
 
@@ -156,7 +161,7 @@ def traceit(frame, event, arg):
         return traceit
 
     elif event == 'return':
-        print(" |" * (len(InputStack.inputs)),"<", frame.f_code.co_name)
+        #print(" |" * (len(InputStack.inputs)),"<", frame.f_code.co_name)
         InputStack.pop()
         return traceit
 
@@ -165,7 +170,7 @@ def traceit(frame, event, arg):
 
     variables = frame.f_locals
     for var, value in variables.items():
-        print(var, value)
+        #print(var, value)
         Vars.update_vars(var, value, frame)
 
     return traceit
@@ -182,19 +187,63 @@ def grammar_to_string(rules):
         return fmt % (key, djs_to_string(rules))
     return "\n".join([fixline(key, rules[key]) for key in rules.keys()])
 
-def taint_include(a, b):
-    #assert type(a) is not str
-    #assert type(b) is not str
-    if get_t(a) and get_t(b):
-        return set(get_t(a)._taint) <= set(get_t(b)._taint)
-    return False
+def taint_include(word, sentence):
+    #print("Is: ", get_t(word) , " in ", get_t(sentence))
+    #assert type(word) is not str
+    #assert type(sentence) is not str
+    gsentence = get_t(sentence)
+    gword = get_t(word)
+    if gword and gsentence:
+        if set(gword._taint) <= set(gsentence._taint):
+            start_i = gsentence._taint.index(gword._taint[0])
+            end_i = gsentence._taint.index(gword._taint[-1])
+            return (gsentence, start_i, end_i)
+        if hasattr(gsentence, '_old_taints'):
+            for i, s in gsentence._old_taints:
+                if set(gword._taint) <= set(i):
+                    # does the starting and ending taints match?
+                    start_i = i.index(gword._taint[0])
+                    end_i = i.index(gword._taint[-1])
+                    return (s, start_i, end_i)
+    return None
 
-def taint_replace(sentence, orig, repl):
+def taint_replace(sentence, at, orig, repl):
+    #print("replace: ", get_t(orig) , " in ", get_t(sentence), ' for ', repl)
+    gsentence = get_t(sentence)
+    # get starting point.
+    s = at[0]
+    start = at[1]
+    stop = at[2]
+    res = s[0:start] + repl + s[start + len(get_t(orig)):]
+    # keep the start and end taints.
+    # start_t = gsentence[start+1]
+    # end_t = gsentence[start + len(get_t(orig))-1]
+    # assert end_t >= start_t
+    # res._taint[start+1] = start_t
+    # res._taint[start + len(repl) - 1] = end_t
+
+    old = gsentence._old_taints if hasattr(gsentence, '_old_taints') else []
+    old.append((gsentence._taint, gsentence))
+    res._old_taints = old
+    return res
+
+def taint_replace_(sentence, orig, repl):
+    #print("replace: ", get_t(orig) , " in ", get_t(sentence), ' for ', repl)
     gsentence = get_t(sentence)
     # get starting point.
     start = gsentence._taint.index(get_t(orig)._taint[0])
     stop = gsentence._taint.index(get_t(orig)._taint[-1])
     res = gsentence[0:start] + repl + gsentence[start + len(get_t(orig)):]
+    # keep the start and end taints.
+    # start_t = gsentence[start+1]
+    # end_t = gsentence[start + len(get_t(orig))-1]
+    # assert end_t >= start_t
+    # res._taint[start+1] = start_t
+    # res._taint[start + len(repl) - 1] = end_t
+
+    old = gsentence._old_taints if hasattr(gsentence, '_old_taints') else []
+    old.append(gsentence._taint)
+    res._old_taints = old
     return res
 
 # Obtain a grammar for a specific input
@@ -212,9 +261,10 @@ def get_grammar(assignments):
             for repl in repl_alternatives:
                 if get_t(value):
                     # if value taint is a proper subset of repl taint
-                    if taint_include(value, repl):
-                       repl = taint_replace(repl, value, nt_var)
-                       append = True
+                    r = taint_include(value, repl)
+                    if r:
+                        repl = taint_replace(repl, r, value, nt_var)
+                        append = True
                 elif type(value) is str and value in repl:
                     assert False
                 alt.add(repl)
@@ -267,11 +317,33 @@ def produce(grammar):
 
     return term
 
+def filter_unused(grammar):
+    while True:
+        values = grammar.values()
+        keys = set(grammar.keys())
+        keys.remove('$START')
+        for k in grammar.keys():
+            for v in values:
+                for iv in v:
+                    if k in iv:
+                        keys.remove(k)
+                        break
+                else:
+                    continue
+                break
+            pass
+        for k in keys:
+            del grammar[k]
+        if not keys:
+            break
+    return grammar
+
 if __name__ == "__main__":
     # Infer grammar
     traces = []
     for _i in INPUTS:
         i = tstr.tstr(_i)
+        Current = i
         Vars.init(i)
         oldtrace = sys.gettrace()
         sys.settrace(traceit)
@@ -283,6 +355,7 @@ if __name__ == "__main__":
     print()
     # Output it
     print("Merged grammar ->\n" + grammar_to_string(grammar))
+    print("Filtered grammar ->\n" + grammar_to_string(filter_unused(grammar)))
 
     # Fuzz a little
     #print("Fuzzing ->")
