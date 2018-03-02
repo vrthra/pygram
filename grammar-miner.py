@@ -29,6 +29,19 @@
 # - Simplified grammar merge
 # - Use string representation of objects to include more names in grammar
 #
+
+# REFACTOR:
+# * We need to rethink how grammar is derived for loopy subjects.
+#   Rather than merge the grammar at the end of execution, we need to
+#   treat each iteration of each loop as a mechanism to produce a simple
+#   gramamr, then merge these grammars together at one go.
+# * Join the line number to the variable name so that a reassignment is
+#   treated as a new variable (but not for a new iteration).
+# * We can detect a new loop by looking for reasignment on the same
+#   variable with same line number.
+#
+# * Split the string objects rather than replace with nt_var
+
 # TODO:
 # * Add string globals to the string parameters and variables
 #   being considered for rule replacements.
@@ -65,17 +78,20 @@ def brk(): import pudb; pudb.set_trace()
 import microjson
 
 INPUTS = [
-    '1',
-    '2',
-    '3',
-    'true',
-    'false',
-    'null',
-    '"hello"',
-   '{"hello":"world"}'
+   '1',
+   '2',
+   '3',
+   'true',
+   'false',
+   'null',
+   '"hello"',
+   '{"hello":"world"}',
+    '[1, 2, 3]',
 ]
 
 Current = None
+Called_Functions = {}
+Fuzz = False
 
 # We store individual variable/value pairs here
 class Vars:
@@ -84,23 +100,16 @@ class Vars:
     def init(i):
         Vars.defs = {'START':i}
 
-    def nframes(frame):
-        i = 0
-        f = frame
-        while f.f_back:
-            i+=1
-            f = f.f_back
-        return i
-
     def varname(var, frame):
-        n = Vars.nframes(frame)
+        fn = frame.f_code.co_name
+        t = Called_Functions[fn]
         # class_name = frame.f_code.co_name
         # if frame.f_code.co_name == '__new__':
         #   class_name = frame.f_locals[frame.f_code.co_varnames[0]].__name__
         # return "%s:%s" % (class_name, var) # (frame.f_code.co_name, frame.f_lineno, var)
         #return "%s:%s:%s(%d)" % (frame.f_code.co_name, frame.f_lineno, var, n)
-        # return "%s:%s(%d)" % (frame.f_code.co_name, var, n)
-        return "<%s:%s>" % (frame.f_code.co_name, var)
+        #return "<%s:%s(%d)>" % (frame.f_code.co_name, var, n)
+        return "<%d:%s:%s>" % (t, frame.f_code.co_name, var)
 
     def update_vars(var, value, frame):
         if get_t(value) and len(get_t(value)) > 0 and InputStack.has(value):
@@ -112,12 +121,6 @@ class Vars:
         #else:
             #print("Dropping", var, value, value.__class__)
             #print("Because:", get_t(value) and len(get_t(value)) > 0, InputStack.has(value))
-
-def goodlen(v):
-    if type(v) is tstr.tstr: return len(v)
-    if '_tstr' in v.__dict__: return len(v._tstr)
-    assert False
-
 
 def get_t(v):
     if type(v) is tstr.tstr: return v
@@ -144,10 +147,18 @@ class InputStack:
     def pop():
         return InputStack.inputs.pop()
 
+def register_frame(frame):
+    fn = frame.f_code.co_name
+    if fn not in Called_Functions:
+        Called_Functions[fn] = 0
+    Called_Functions[fn] += 1
+
 # We record all string variables and values occurring during execution
 def traceit(frame, event, arg):
     if 'tstr.py' in frame.f_code.co_filename: return traceit
     if event == 'call':
+        register_frame(frame)
+
         param_names = [frame.f_code.co_varnames[i]
                        for i in range(frame.f_code.co_argcount)]
         my_parameters = {k: v for k, v in frame.f_locals.items()
@@ -199,12 +210,14 @@ def taint_include(word, sentence):
             end_i = gsentence._taint.index(gword._taint[-1])
             return (gsentence, start_i, end_i)
         if hasattr(gsentence, '_old_taints'):
-            for i, s in gsentence._old_taints:
-                if set(gword._taint) <= set(i):
-                    # does the starting and ending taints match?
-                    start_i = i.index(gword._taint[0])
-                    end_i = i.index(gword._taint[-1])
-                    return (s, start_i, end_i)
+           old_taints = [] #gsentence._old_taints #[-2:-1]
+           for i, s in old_taints:
+               if set(gword._taint) <= set(i):
+                   if len(set(i) - set(gword._taint)) > 0:
+                       # does the starting and ending taints match?
+                       start_i = i.index(gword._taint[0])
+                       end_i = i.index(gword._taint[-1])
+                       return (s, start_i, end_i)
     return None
 
 def taint_replace(sentence, at, orig, repl):
@@ -224,25 +237,6 @@ def taint_replace(sentence, at, orig, repl):
 
     old = gsentence._old_taints if hasattr(gsentence, '_old_taints') else []
     old.append((gsentence._taint, gsentence))
-    res._old_taints = old
-    return res
-
-def taint_replace_(sentence, orig, repl):
-    #print("replace: ", get_t(orig) , " in ", get_t(sentence), ' for ', repl)
-    gsentence = get_t(sentence)
-    # get starting point.
-    start = gsentence._taint.index(get_t(orig)._taint[0])
-    stop = gsentence._taint.index(get_t(orig)._taint[-1])
-    res = gsentence[0:start] + repl + gsentence[start + len(get_t(orig)):]
-    # keep the start and end taints.
-    # start_t = gsentence[start+1]
-    # end_t = gsentence[start + len(get_t(orig))-1]
-    # assert end_t >= start_t
-    # res._taint[start+1] = start_t
-    # res._taint[start + len(repl) - 1] = end_t
-
-    old = gsentence._old_taints if hasattr(gsentence, '_old_taints') else []
-    old.append(gsentence._taint)
     res._old_taints = old
     return res
 
@@ -338,6 +332,37 @@ def filter_unused(grammar):
             break
     return grammar
 
+def get_updated_value(to_remove, v):
+    for k,vs in to_remove.items():
+        if v in vs:
+            return k
+    return v
+
+def filter_redundant(grammar):
+    kv = [(k,v) for k,v in grammar.items()]
+    ks = [k for k,v in kv]
+    vs = [v for k,v in kv]
+    to_remove = {}
+    for k in grammar.keys():
+        ids = [i for i,x in enumerate(vs) if k in x]
+        if ids:
+            to_remove[k] = [ks[j] for j in ids if ks[j] != '$START']
+
+    new_grammar = {}
+    for k,vs in grammar.items():
+        alt = set()
+        for v in vs:
+            val = get_updated_value(to_remove, v)
+            alt.add(val)
+        new_grammar[k] = alt
+    return new_grammar
+
+def fuzz(grammar):
+    # Fuzz a little
+    print("Fuzzing ->")
+    for i in range(1, 10):
+        print(produce(grammar))
+
 if __name__ == "__main__":
     # Infer grammar
     traces = []
@@ -355,9 +380,8 @@ if __name__ == "__main__":
     print()
     # Output it
     print("Merged grammar ->\n" + grammar_to_string(grammar))
-    print("Filtered grammar ->\n" + grammar_to_string(filter_unused(grammar)))
+    print()
+    g = filter_redundant(grammar)
+    print("Filtered grammar ->\n" + grammar_to_string(filter_unused(g)))
+    if Fuzz: fuzz(g)
 
-    # Fuzz a little
-    #print("Fuzzing ->")
-    #for i in range(1, 10):
-    #    print(produce(grammar))
