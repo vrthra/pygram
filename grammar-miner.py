@@ -231,33 +231,37 @@ class V:
         assert v
         return str(v)
 
+    @property
+    def taint(self):
+        return get_t(self.v)._taint
+
     def include(self, word):
         gsentence = get_t(self.v)
         gword = get_t(word)
-        if gword and gsentence:
-            if set(gword._taint) <= set(gsentence._taint):
-                start_i = gsentence._taint.index(gword._taint[0])
-                end_i = gsentence._taint.index(gword._taint[-1])
-                return (gsentence, start_i, end_i)
-            if hasattr(gsentence, '_old_taints'):
-               old_taints = [] #gsentence._old_taints #[-2:-1]
+        if gword:
+            if set(gword._taint) <= set(self.taint):
+                start_i = self.taint.index(gword._taint[0])
+                end_i = self.taint.index(gword._taint[-1])
+                return (start_i, end_i)
+            if hasattr(self, '_old_taints'):
+               old_taints = [] #self._old_taints #[-2:-1]
                for i, s in old_taints:
                    if set(gword._taint) <= set(i):
                        if len(set(i) - set(gword._taint)) > 0:
                            # does the starting and ending taints match?
                            start_i = i.index(gword._taint[0])
                            end_i = i.index(gword._taint[-1])
-                           return (s, start_i, end_i)
+                           return (start_i, end_i)
         return None
 
     def replace(self, at, orig, repl):
-        gsentence = get_t(self.v)
         # get starting point.
-        s = at[0]
-        start = at[1]
-        stop = at[2]
+        s = get_t(self.v)
+        start = at[0]
+        stop = at[1]
         res = s[0:start] + repl + s[start + len(get_t(orig)):]
 
+        gsentence = get_t(self.v)
         old = gsentence._old_taints if hasattr(gsentence, '_old_taints') else []
         old.append((gsentence._taint, gsentence))
         res._old_taints = old
