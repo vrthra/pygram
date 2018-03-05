@@ -43,6 +43,8 @@
 # * Split the string objects rather than replace with nt_var
 # * When looking for old_taints, ensure that the newly replaced stuff
 #   is actually better than the old vars
+# * Take a leaf out of the regex paper, and allow single character values
+#   with no replacements to be embedded directly rather than as a non-terminal.
 
 # TODO:
 # * Add string globals to the string parameters and variables
@@ -88,7 +90,7 @@ INPUTS = [
    'null',
    '"hello"',
    '{"hello":"world"}',
-    '[1, 2, 3]',
+   '[1, 2, 3]',
 ]
 
 Current = None
@@ -208,64 +210,54 @@ def taint_include(word, sentence):
             start_i = gsentence._taint.index(gword._taint[0])
             end_i = gsentence._taint.index(gword._taint[-1])
             return (gsentence, start_i, end_i)
-        if hasattr(gsentence, '_old_taints'):
-           old_taints = [] #gsentence._old_taints #[-2:-1]
-           for i, s in old_taints:
-               if set(gword._taint) <= set(i):
-                   if len(set(i) - set(gword._taint)) > 0:
-                       # does the starting and ending taints match?
-                       start_i = i.index(gword._taint[0])
-                       end_i = i.index(gword._taint[-1])
-                       return (s, start_i, end_i)
     return None
 
 class V:
     def __init__(self, v):
         self.v = v
+        self._taint = get_t(v)._taint
+        self._index_map = {}
+        self._index_map[range(0, len(self._taint))] = str(get_t(v))
 
     def __lt__(self, o):
-        return self.v.__lt__(o.v)
+        return str(self).__lt__(str(o))
 
     def __str__(self):
-        v = get_t(self.v)
-        assert v
-        return str(v)
+        res = ''
+        for k in sorted(self._index_map.keys(), key=lambda a: a.start):
+            res += self._index_map[k]
+        return res
+
+    def _tinclude(self, o):
+        for k in self._index_map:
+            if set(o._taint) <= set(k):
+                return k, range(o._taint[0], o._taint[-1]+1)
+        return None
 
     @property
     def taint(self):
-        return get_t(self.v)._taint
+        return self._taint
 
     def include(self, word):
-        gsentence = get_t(self.v)
         gword = get_t(word)
-        if gword:
-            if set(gword._taint) <= set(self.taint):
-                start_i = self.taint.index(gword._taint[0])
-                end_i = self.taint.index(gword._taint[-1])
-                return (start_i, end_i)
-            if hasattr(self, '_old_taints'):
-               old_taints = [] #self._old_taints #[-2:-1]
-               for i, s in old_taints:
-                   if set(gword._taint) <= set(i):
-                       if len(set(i) - set(gword._taint)) > 0:
-                           # does the starting and ending taints match?
-                           start_i = i.index(gword._taint[0])
-                           end_i = i.index(gword._taint[-1])
-                           return (start_i, end_i)
-        return None
+        if not gword: return None
+        taint_key = self._tinclude(gword)
+        return taint_key if taint_key else None
 
-    def replace(self, at, orig, repl):
+    def replace(self, taintft, orig, repl):
         # get starting point.
-        s = get_t(self.v)
-        start = at[0]
-        stop = at[1]
-        res = s[0:start] + repl + s[start + len(get_t(orig)):]
-
-        gsentence = get_t(self.v)
-        old = gsentence._old_taints if hasattr(gsentence, '_old_taints') else []
-        old.append((gsentence._taint, gsentence))
-        res._old_taints = old
-        return res
+        taintkey, reprange = taintft
+        my_str = self._index_map[taintkey]
+        del self._index_map[taintkey]
+        # insert the fraction between taintkey and frm
+        # which corresponds to my_str
+        # my_str[0] = taintkey.start
+        if taintkey.start < reprange.start:
+            self._index_map[range(taintkey.start, reprange.start)] = my_str[0:(reprange.start - taintkey.start)]
+        self._index_map[range(reprange.start, reprange.stop)] = repl
+        if taintkey.stop > reprange.stop:
+            self._index_map[range(reprange.stop, taintkey.stop)] = my_str[len(orig):]
+        pass
 
 
 # Obtain a grammar for a specific input
@@ -286,7 +278,7 @@ def get_grammar(assignments):
                     # if value taint is a proper subset of repl taint
                     r = repl.include(value)
                     if r:
-                        repl.v = repl.replace(r, value, nt_var)
+                        repl.replace(r, value, nt_var)
                         append = True
                 elif type(value) is str and value in repl.v:
                     assert False
