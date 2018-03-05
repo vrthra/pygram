@@ -96,6 +96,9 @@ class JSONStream(object):
     def _tstr(self):
         return self._stm._tstr
 
+    def __repr__(self):
+        return "J" + str(self._tstr)
+
 
 def _decode_utf8(c0, stm):
     c0 = ord(c0)
