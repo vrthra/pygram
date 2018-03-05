@@ -41,6 +41,8 @@
 #   variable with same line number.
 #
 # * Split the string objects rather than replace with nt_var
+# * When looking for old_taints, ensure that the newly replaced stuff
+#   is actually better than the old vars
 
 # TODO:
 # * Add string globals to the string parameters and variables
@@ -192,16 +194,13 @@ def nonterminal(var):
 
 def grammar_to_string(rules):
     def djs_to_string(djs):
-        return "\n\t| ".join([i.replace('\n', '\n|\t') for i in sorted(djs)])
+        return "\n\t| ".join([str(i).replace('\n', '\n|\t') for i in sorted(djs)])
     def fixline(key, rules):
         fmt = "%s ::= %s" if len(rules) == 1 else "%s ::=\n\t| %s"
         return fmt % (key, djs_to_string(rules))
     return "\n".join([fixline(key, rules[key]) for key in rules.keys()])
 
 def taint_include(word, sentence):
-    #print("Is: ", get_t(word) , " in ", get_t(sentence))
-    #assert type(word) is not str
-    #assert type(sentence) is not str
     gsentence = get_t(sentence)
     gword = get_t(word)
     if gword and gsentence:
@@ -220,25 +219,50 @@ def taint_include(word, sentence):
                        return (s, start_i, end_i)
     return None
 
-def taint_replace(sentence, at, orig, repl):
-    #print("replace: ", get_t(orig) , " in ", get_t(sentence), ' for ', repl)
-    gsentence = get_t(sentence)
-    # get starting point.
-    s = at[0]
-    start = at[1]
-    stop = at[2]
-    res = s[0:start] + repl + s[start + len(get_t(orig)):]
-    # keep the start and end taints.
-    # start_t = gsentence[start+1]
-    # end_t = gsentence[start + len(get_t(orig))-1]
-    # assert end_t >= start_t
-    # res._taint[start+1] = start_t
-    # res._taint[start + len(repl) - 1] = end_t
+class V:
+    def __init__(self, v):
+        self.v = v
 
-    old = gsentence._old_taints if hasattr(gsentence, '_old_taints') else []
-    old.append((gsentence._taint, gsentence))
-    res._old_taints = old
-    return res
+    def __lt__(self, o):
+        return self.v.__lt__(o.v)
+
+    def __str__(self):
+        v = get_t(self.v)
+        assert v
+        return str(v)
+
+    def include(self, word):
+        gsentence = get_t(self.v)
+        gword = get_t(word)
+        if gword and gsentence:
+            if set(gword._taint) <= set(gsentence._taint):
+                start_i = gsentence._taint.index(gword._taint[0])
+                end_i = gsentence._taint.index(gword._taint[-1])
+                return (gsentence, start_i, end_i)
+            if hasattr(gsentence, '_old_taints'):
+               old_taints = [] #gsentence._old_taints #[-2:-1]
+               for i, s in old_taints:
+                   if set(gword._taint) <= set(i):
+                       if len(set(i) - set(gword._taint)) > 0:
+                           # does the starting and ending taints match?
+                           start_i = i.index(gword._taint[0])
+                           end_i = i.index(gword._taint[-1])
+                           return (s, start_i, end_i)
+        return None
+
+    def replace(self, at, orig, repl):
+        gsentence = get_t(self.v)
+        # get starting point.
+        s = at[0]
+        start = at[1]
+        stop = at[2]
+        res = s[0:start] + repl + s[start + len(get_t(orig)):]
+
+        old = gsentence._old_taints if hasattr(gsentence, '_old_taints') else []
+        old.append((gsentence._taint, gsentence))
+        res._old_taints = old
+        return res
+
 
 # Obtain a grammar for a specific input
 def get_grammar(assignments):
@@ -252,19 +276,20 @@ def get_grammar(assignments):
         append = False
         for key, repl_alternatives in my_grammar.items():
             alt = set()
+            # each repl is a dict
             for repl in repl_alternatives:
                 if get_t(value):
                     # if value taint is a proper subset of repl taint
-                    r = taint_include(value, repl)
+                    r = repl.include(value)
                     if r:
-                        repl = taint_replace(repl, r, value, nt_var)
+                        repl.v = repl.replace(r, value, nt_var)
                         append = True
-                elif type(value) is str and value in repl:
+                elif type(value) is str and value in repl.v:
                     assert False
                 alt.add(repl)
             my_grammar[key] = alt
         if append or not my_grammar:
-            my_grammar[nt_var] = {value}
+            my_grammar[nt_var] = {V(value)}
     return my_grammar
 
 # Merge two grammars G1 and G2
@@ -319,7 +344,7 @@ def filter_unused(grammar):
         for k in grammar.keys():
             for v in values:
                 for iv in v:
-                    if k in iv:
+                    if k in str(iv):
                         keys.remove(k)
                         break
                 else:
