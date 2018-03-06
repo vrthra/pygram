@@ -79,20 +79,6 @@ import tstr
 import pudb
 brk = pudb.set_trace
 
-import microjson
-
-INPUTS = [
-   # '1',
-   # '2',
-   # '3',
-   # 'true',
-   # 'false',
-   # 'null',
-   '"hello"',
-   # '{"hello":"world"}',
-   # '[1, 2, 3]',
-]
-
 Current = None
 Called_Functions = {}
 Fuzz = False
@@ -356,30 +342,6 @@ def apply_rule(term, rule):
     # this could also be some random occurrence
     return term.replace(old, new, 1)
 
-MAX_SYMBOLS = 5
-MAX_TRIES = 500
-
-def produce(grammar):
-    term = "$START"
-    tries = 0
-
-    while term.count('$') > 0:
-        # All rules have the same chance;
-        # this could also be weighted
-        key = random.choice(list(grammar.keys()))
-        repl = random.choice(list(grammar[key]))
-        new_term = apply_rule(term, (key, repl))
-        if new_term != term and new_term.count('$') < MAX_SYMBOLS:
-            term = new_term
-            # print(term)
-            tries = 0
-        else:
-            tries += 1
-            if tries >= MAX_TRIES:
-                assert False, "Cannot expand " + term
-
-    return term
-
 def filter_unused(grammar):
     while True:
         values = grammar.values()
@@ -425,31 +387,4 @@ def filter_redundant(grammar):
             alt.add(val)
         new_grammar[k] = alt
     return new_grammar
-
-def fuzz(grammar):
-    # Fuzz a little
-    print("Fuzzing ->")
-    for i in range(1, 10):
-        print(produce(grammar))
-
-if __name__ == "__main__":
-    # Infer grammar
-    traces = []
-    for _i in INPUTS:
-        i = tstr.tstr(_i)
-        Current = i
-        Vars.init(i)
-        oldtrace = sys.gettrace()
-        sys.settrace(traceit)
-        o = microjson.from_json(i)
-        sys.settrace(oldtrace)
-        traces.append((i, Vars.defs))
-    grammar = get_merged_grammar(traces)
-    print()
-    # Output it
-    print("Merged grammar ->\n" + grammar_to_string(grammar))
-    print()
-    g = filter_redundant(grammar)
-    print("Filtered grammar ->\n" + grammar_to_string(filter_unused(g)))
-    #if Fuzz: fuzz(g)
 
