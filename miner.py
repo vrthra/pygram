@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 # Mine a grammar from dynamic behavior
-
-import tstr
 import pudb
 brk = pudb.set_trace
 import grammar as g
@@ -15,22 +13,19 @@ class V:
 
     def value(self):
         return ''.join([self._index_map[k]
-            for k in sorted(self._index_map.keys(), key=lambda a: a.start)])
+            for k in sorted(self._index_map, key=lambda a: a.start)])
 
     def __repr__(self): return 'V:%s' % self.value()
 
     def cur_taint(self):
         t = [-1] * len(self.taint)
-        for k in sorted(self._index_map.keys(), key=lambda a: a.start):
+        for k in sorted(self._index_map, key=lambda a: a.start):
             v = self._index_map[k]
-            if type(v) is tstr.tstr: t[k.start:k.stop] = v._taint
+            if hasattr(v, '_taint'): t[k.start:k.stop] = v._taint
         return t
 
     def _tinclude(self, o):
-        for k in self._index_map:
-            if set(o._taint) <= set(k):
-                return k, range(o._taint[0], o._taint[-1]+1)
-        return None
+        return next((k for k in self._index_map if set(o._taint) <= set(k)), None)
 
     def _in_range(self, o):
         return self.taint[0] <= o._taint[0] and self.taint[-1] >= o._taint[-1]
@@ -39,41 +34,36 @@ class V:
     def taint(self): return self._taint
 
     def include(self, word):
-        gword = word
-        if not gword: return None
-        if self._in_range(gword):
-            # When we paste the taints of new word in, (not replace)
-            # then, does it get us more coverage? (i.e more -1s)
-            cur_tsum = sum(i for i in self.cur_taint() if i < 0)
-            t = self.taint[:]
-            start_i = t.index(gword._taint[0])
-            stop_i = t.index(gword._taint[-1])
-            t[start_i:stop_i+1] = [-1] * len(gword)
-            new_sum = sum([i for i in t if i < 0])
-            if new_sum <= cur_tsum:
-                return new_sum - cur_tsum
-            return None
+        if not self._in_range(word): return None
+        # When we paste the taints of new word in, (not replace)
+        # then, does it get us more coverage? (i.e more -1s)
+        cur_tsum = sum(i for i in self.cur_taint() if i < 0)
+        t = self.taint[:]
+        start_i,stop_i = t.index(word._taint[0]),t.index(word._taint[-1])
+        t[start_i:stop_i+1] = [-1] * len(word)
+        new_sum = sum(i for i in t if i < 0)
+        if new_sum <= cur_tsum:
+            return new_sum - cur_tsum
         return None
 
     def replace(self, orig, repl):
-        taintft = self._tinclude(orig)
-        if not taintft:
+        taintkey = self._tinclude(orig)
+        if not taintkey:
             # the complete taint range is not contained, but we are still
             # inclued in the original. It means that an inbetween variable has
             # obscured our inclusion.
             to_rem = []
-            for k in sorted(self._index_map.keys(), key=lambda a: a.start):
+            for k in sorted(self._index_map, key=lambda a: a.start):
                 o = orig
                 if o._taint[0] <= k.start <= o._taint[-1]:
                     assert o._taint[0] <= k.stop <= o._taint[-1]+1
                     to_rem.append(k)
-            for k in to_rem:
-                del self._index_map[k]
+            for k in to_rem: del self._index_map[k]
             self._index_map[range(o._taint[0], o._taint[-1]+1)] = repl
             return
 
         # get starting point.
-        taintkey, reprange = taintft
+        reprange = range(orig._taint[0], orig._taint[-1] + 1)
         my_str = self._index_map[taintkey]
         del self._index_map[taintkey]
         splitA = reprange.start - taintkey.start
@@ -88,7 +78,6 @@ class V:
 # Convert a variable name into a grammar nonterminal
 def nonterminal(var): return "$" + var.upper()
 
-
 # Obtain a grammar for a specific input
 def get_grammar(assignments):
     # For each (VAR, VALUE) found:
@@ -100,12 +89,11 @@ def get_grammar(assignments):
     for var, value in assignments.items():
         nt_var = nonterminal(var)
         append = False if my_grammar else True
-        for key, repl_alternatives in my_grammar.items():
+        for _, repl_alternatives in my_grammar.items():
             # if value taint is a proper subset of repl taint
             res = [repl for repl in repl_alternatives if repl.include(value)]
-            for repl in res:
-                repl.replace(value, nt_var)
-                append = True
+            for repl in res: repl.replace(value, nt_var)
+            append = True
         if append: my_grammar[nt_var] = {V(value)}
     return my_grammar
 
