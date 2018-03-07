@@ -9,26 +9,15 @@ class V:
     def __init__(self, v):
         self.v = v
         self._taint = v._taint
-        self._index_map = {}
-        self._index_map[range(0, len(self._taint))] = v
-        self._old_taints = []
+        self._index_map = {range(0, len(self._taint)): v}
 
-    def __lt__(self, o):
-        return str(self).__lt__(str(o))
+    def __lt__(self, o): return str(self).__lt__(str(o))
 
     def value(self):
-        res = ''.join([self._index_map[k] for k in
+        return ''.join([self._index_map[k] for k in
             sorted(self._index_map.keys(), key=lambda a: a.start)])
-        return res
 
-    def __str__(self):
-        res = ''.join([self._index_map[k] for k in
-            sorted(self._index_map.keys(), key=lambda a: a.start)])
-        return res
-
-    def __repr__(self):
-        v = str(self)
-        return 'V:%s' % v
+    def __repr__(self): return 'V:%s' % self.value()
 
     def cur_taint(self):
         t = [-1] * len(self.v)
@@ -36,8 +25,6 @@ class V:
             v = self._index_map[k]
             if type(v) is tstr.tstr:
                 t[k.start:k.stop] = v._taint
-            #else:
-            #    assert False
         return t
 
     def _tinclude(self, o):
@@ -50,8 +37,7 @@ class V:
         return self._taint[0] <= o._taint[0] and self.taint[-1] >= o._taint[-1]
 
     @property
-    def taint(self):
-        return self._taint
+    def taint(self): return self._taint
 
     def include(self, word):
         gword = word
@@ -73,8 +59,9 @@ class V:
     def replace(self, orig, repl):
         taintft = self._tinclude(orig)
         if not taintft:
-            # remove every range that is completely contained
-            # assert that no overlapping range found.
+            # the complete taint range is not contained, but we are still
+            # inclued in the original. It means that an inbetween variable has
+            # obscured our inclusion.
             to_rem = []
             for k in sorted(self._index_map.keys(), key=lambda a: a.start):
                 o = orig
@@ -91,20 +78,19 @@ class V:
         taintkey, reprange = taintft
         my_str = self._index_map[taintkey]
         del self._index_map[taintkey]
-        self._old_taints.append({taintkey: my_str})
         # insert the fraction between taintkey and frm
         # which corresponds to my_str
         # my_str[0] = taintkey.start
         x = (reprange.start - taintkey.start)
-        if taintkey.start < reprange.start:
-            self._index_map[range(taintkey.start, reprange.start)] = my_str[0:x]
-        self._index_map[range(reprange.start, reprange.stop)] = repl
-        if taintkey.stop > reprange.stop:
-            self._index_map[range(reprange.stop, taintkey.stop)] = my_str[x + len(sorig):]
+        init_range = range(taintkey.start, reprange.start)
+        mid_range = range(reprange.start, reprange.stop)
+        end_range = range(reprange.stop, taintkey.stop)
+        if init_range: self._index_map[init_range] = my_str[0:x]
+        self._index_map[mid_range] = repl
+        if end_range: self._index_map[end_range] = my_str[x + len(sorig):]
 
 # Convert a variable name into a grammar nonterminal
-def nonterminal(var):
-    return "$" + var.upper()
+def nonterminal(var): return "$" + var.upper()
 
 def grammar_to_string(rules):
     def djs_to_string(djs):
@@ -125,17 +111,15 @@ def get_grammar(assignments):
     my_grammar = {}
     # all values are tainted strings.
     for var, value in assignments.items():
-        assert type(value) is tstr.tstr
         nt_var = nonterminal(var)
-        append = False
+        append = False if my_grammar else True
         for key, repl_alternatives in my_grammar.items():
             # if value taint is a proper subset of repl taint
             res = [repl for repl in repl_alternatives if repl.include(value)]
             for repl in res:
                 repl.replace(value, nt_var)
                 append = True
-        if append or not my_grammar:
-            my_grammar[nt_var] = {V(value)}
+        if append: my_grammar[nt_var] = {V(value)}
     return my_grammar
 
 # Merge two grammars G1 and G2
@@ -148,7 +132,7 @@ def infer_grammar(traces):
     merged_grammar = {}
     for instr, defs in traces:
         grammar = get_grammar(defs)
-        print(repr(instr) + " ->\n" + grammar_to_string(grammar))
+        # print(repr(instr) + " ->\n" + grammar_to_string(grammar))
         merged_grammar = merge_grammars(merged_grammar, grammar)
     return merged_grammar
 
