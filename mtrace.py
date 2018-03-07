@@ -18,24 +18,22 @@ class Vars:
         return "<%d:%s:%s>" % (t, frame.f_code.co_name, var)
 
     def update_vars(var, value, frame):
-        if get_t(value) and len(get_t(value)) > 0 and InputStack.has(value):
+        tv = get_t(value)
+        if tv and len(tv) > 0 and InputStack.has(tv):
            qual_var = Vars.varname(var, frame)
            if not Vars.defs.get(qual_var):
-               Vars.defs[qual_var] = value
+               Vars.defs[qual_var] = get_t(value)
            #else:
                #print("has:", var, qual_var, value)
         #else:
             #print("Dropping", var, value, value.__class__)
             #print("Because:", get_t(value) and len(get_t(value)) > 0, InputStack.has(value))
 
-def taint_include(word, sentence):
-    gsentence = get_t(sentence)
-    gword = get_t(word)
-    if gword and gsentence:
-        if set(gword._taint) <= set(gsentence._taint):
-            start_i = gsentence._taint.index(gword._taint[0])
-            end_i = gsentence._taint.index(gword._taint[-1])
-            return (gsentence, start_i, end_i)
+def taint_include(gword, gsentence):
+    if set(gword._taint) <= set(gsentence._taint):
+        start_i = gsentence._taint.index(gword._taint[0])
+        end_i = gsentence._taint.index(gword._taint[-1])
+        return (gsentence, start_i, end_i)
     return None
 
 class InputStack:
@@ -43,14 +41,10 @@ class InputStack:
     inputs = []
 
     def has(val):
-        for var in InputStack.inputs[-1].values():
-            if taint_include(val, var):
-                return True
-        return False
-
+        return any(taint_include(val, var) for var in InputStack.inputs[-1].values())
 
     def push(inputs):
-        my_inputs = {k:v for k,v in inputs.items() if get_t(v)}
+        my_inputs = {k:get_t(v) for k,v in inputs.items() if get_t(v)}
         if InputStack.inputs:
             my_inputs = {k:v for k,v in my_inputs.items() if InputStack.has(v)}
         InputStack.inputs.append(my_inputs)

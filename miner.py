@@ -77,9 +77,6 @@ from tstr import get_t
 import pudb
 brk = pudb.set_trace
 
-Current = None
-Fuzz = False
-
 # Convert a variable name into a grammar nonterminal
 def nonterminal(var):
     return "$" + var.upper()
