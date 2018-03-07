@@ -30,12 +30,17 @@ class V:
     @property
     def taint(self): return self._taint
 
+    def keys_enclosed_by(self, largerange):
+        l = [k for k in self.ranges() if k.start in largerange]
+        assert all(k.stop - 1 in largerange for k in l)
+        return l
+
     def include(self, word):
         if not self._encloses(word): return None
         # When we paste the taints of new word in, (not replace)
         # then, does it get us more coverage? (i.e more -1s)
         cur_tsum = sum(i for i in self.cur_taint() if i < 0)
-        ts = self.taint[:]
+        ts = self.taint[:] # the original taint
         start_i, stop_i = ts.index(word._taint[0]), ts.index(word._taint[-1])
         ts[start_i:stop_i+1] = [-1] * len(word)
         new_sum = sum(i for i in ts if i < 0)
@@ -55,25 +60,20 @@ class V:
             # the complete taint range is not contained, but we are still
             # inclued in the original. It means that an inbetween variable has
             # obscured our inclusion.
-            to_rem = []
-            for k in self.ranges():
-                if k.start in trange:
-                    assert k.stop - 1 in trange
-                    to_rem.append(k)
+            to_rem = self.keys_enclosed_by(trange)
             for k in to_rem: del self._rindex[k]
             self._rindex[trange] = repl
-            return
-
-        # get starting point.
-        my_str = self._rindex[keytaint]
-        del self._rindex[keytaint]
-        splitA = trange.start - keytaint.start
-        init_range = range(keytaint.start, trange.start)
-        mid_range = range(trange.start, trange.stop)
-        end_range = range(trange.stop, keytaint.stop)
-        if init_range: self._rindex[init_range] = my_str[0:splitA]
-        self._rindex[mid_range] = repl
-        if end_range: self._rindex[end_range] = my_str[splitA + len(o):]
+        else:
+            # get starting point.
+            my_str = self._rindex[keytaint]
+            del self._rindex[keytaint]
+            splitA = trange.start - keytaint.start
+            init_range = range(keytaint.start, trange.start)
+            mid_range = range(trange.start, trange.stop)
+            end_range = range(trange.stop, keytaint.stop)
+            if init_range: self._rindex[init_range] = my_str[0:splitA]
+            self._rindex[mid_range] = repl
+            if end_range: self._rindex[end_range] = my_str[splitA + len(o):]
 
 def nonterminal(var): return "$" + var.upper()
 def tainted_range(tarr): return range(tarr[0], tarr[-1]+1)
