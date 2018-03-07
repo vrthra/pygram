@@ -4,3 +4,5 @@ trace.g: trace.p
 trace.p:
 	./extract.py
 
+clean:
+	rm trace.p
