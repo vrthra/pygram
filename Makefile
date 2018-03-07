@@ -1,11 +1,14 @@
 debug=-m pudb
 ENV=$(debug)
 
-trace.g: trace.p
+traces.g: traces.p
 	python3 $(ENV) ./infer.py
 
-trace.p:
+traces.p:
 	./extract.py
 
+show:
+	./showtrace.py
+
 clean:
-	rm trace.p
+	rm traces.p

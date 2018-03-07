@@ -1,4 +1,4 @@
-from tstr import get_t
+from tstr import get_t, tstr
 
 class Vars:
     defs = None
@@ -22,13 +22,9 @@ class Vars:
         if tv and len(tv) > 0 and InputStack.has(tv):
            qual_var = Vars.varname(var, frame)
            if not Vars.defs.get(qual_var):
-               Vars.defs[qual_var] = get_t(value)
-           #else:
-               #print("has:", var, qual_var, value)
-        #else:
-            #print("Dropping", var, value, value.__class__)
-            #print("Because:", get_t(value) and len(get_t(value)) > 0, InputStack.has(value))
-
+               v = get_t(value)
+               assert type(v) is tstr
+               Vars.defs[qual_var] = v
 def taint_include(gword, gsentence):
     if set(gword._taint) <= set(gsentence._taint):
         start_i = gsentence._taint.index(gword._taint[0])
