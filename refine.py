@@ -4,7 +4,7 @@ def filter_unused(grammar):
     while True:
         values = grammar.values()
         keys = set(grammar.keys())
-        keys.remove('$START')
+        keys.remove('START')
         for k in grammar.keys():
             for v in values:
                 for iv in v:
@@ -35,7 +35,7 @@ def filter_redundant(grammar):
     for k in grammar.keys():
         ids = [i for i,x in enumerate(vs) if k in x]
         if ids:
-            to_remove[k] = [ks[j] for j in ids if ks[j] != '$START']
+            to_remove[k] = [ks[j] for j in ids if ks[j] != 'START']
 
     new_grammar = {}
     for k,vs in grammar.items():

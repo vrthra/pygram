@@ -83,13 +83,12 @@ def get_grammar(assignments):
     my_grammar = g.Grammar()
     # all values are tainted strings.
     for var, value in assignments.items():
-        nt_var = nonterminal(var)
         append = False if my_grammar else True
         for _, repl_alternatives in my_grammar.items():
             res = [repl for repl in repl_alternatives if repl.include(value)]
-            for repl in res: repl.replace(value, nt_var)
+            for repl in res: repl.replace(value, var)
             append = True
-        if append: my_grammar[nt_var] = {V(value)}
+        if append: my_grammar[var] = {V(value)}
     return my_grammar
 
 def merge_grammars(g1, g2):

@@ -8,7 +8,10 @@ traces.p:
 	./extract.py
 
 show:
-	./showtrace.py
+	@ ./showtrace.py
+
+showjs:
+	@ ./showtrace.py | jq .
 
 clean:
 	rm traces.p
