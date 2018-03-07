@@ -4,6 +4,7 @@
 import tstr
 import pudb
 brk = pudb.set_trace
+import grammar as g
 
 class V:
     def __init__(self, v):
@@ -87,15 +88,6 @@ class V:
 # Convert a variable name into a grammar nonterminal
 def nonterminal(var): return "$" + var.upper()
 
-def grammar_to_string(rules):
-    def djs_to_string(djs):
-        return "\n\t| ".join([i.value().replace('\n', '\n|\t')
-            for i in sorted(djs)])
-    def fixline(key, rules):
-        fmt = "%s ::= %s" if len(rules) == 1 else "%s ::=\n\t| %s"
-        return fmt % (key, djs_to_string(rules))
-    return "\n".join([fixline(key, rules[key]) for key in rules.keys()])
-
 
 # Obtain a grammar for a specific input
 def get_grammar(assignments):
@@ -103,7 +95,7 @@ def get_grammar(assignments):
     # 1. We search for occurrences of VALUE in the grammar
     # 2. We replace them by $VAR
     # 3. We add a new rule $VAR -> VALUE to the grammar
-    my_grammar = {}
+    my_grammar = g.Grammar()
     # all values are tainted strings.
     for var, value in assignments.items():
         nt_var = nonterminal(var)
@@ -119,15 +111,14 @@ def get_grammar(assignments):
 
 # Merge two grammars G1 and G2
 def merge_grammars(g1, g2):
-    return {key: g1.get(key, set()) | g2.get(key, set())
-            for key in list(g1.keys()) + list(g2.keys())}
+    return g.Grammar({key: g1[key] | g2[key] for key in g1.keys() + g2.keys()})
 
 # Get a grammar for multiple inputs
 def infer_grammar(traces):
-    merged_grammar = {}
+    merged_grammar = g.Grammar()
     for instr, defs in traces:
         grammar = get_grammar(defs)
-        # print(repr(instr) + " ->\n" + grammar_to_string(grammar))
+        # print(repr(instr) + " ->\n" + str(grammar))
         merged_grammar = merge_grammars(merged_grammar, grammar)
     return merged_grammar
 

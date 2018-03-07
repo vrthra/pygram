@@ -1,3 +1,4 @@
+import grammar
 
 def filter_unused(grammar):
     while True:
