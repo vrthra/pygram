@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 # Mine a grammar from dynamic behavior
 
-from tstr import get_t
 import pudb
+import tstr
 brk = pudb.set_trace
 
 class V:
     def __init__(self, v):
         self.v = v
-        self._taint = get_t(v)._taint
+        self._taint = v._taint
         self._index_map = {}
-        self._index_map[range(0, len(self._taint))] = get_t(v)
+        self._index_map[range(0, len(self._taint))] = v
         self._old_taints = []
 
     def __lt__(self, o):
@@ -27,10 +27,10 @@ class V:
         return res
 
     def cur_taint(self):
-        t = [-1] * len(get_t(self.v))
+        t = [-1] * len(self.v)
         for k in sorted(self._index_map.keys(), key=lambda a: a.start):
-            v = get_t(self._index_map[k])
-            if v:
+            v = self._index_map[k]
+            if type(v) is tstr.tstr:
                 t[k.start:k.stop] = v._taint
         return t
 
@@ -48,7 +48,7 @@ class V:
         return self._taint
 
     def include(self, word):
-        gword = get_t(word)
+        gword = word
         if not gword: return None
         if self._in_range(gword):
             # When we paste the taints of new word in, (not replace)
@@ -65,13 +65,13 @@ class V:
         return None
 
     def replace(self, to_replace, orig, repl):
-        taintft = self._tinclude(get_t(orig))
+        taintft = self._tinclude(orig)
         if not taintft:
             # remove every range that is completely contained
             # assert that no overlapping range found.
             to_rem = []
             for k in sorted(self._index_map.keys(), key=lambda a: a.start):
-                o = get_t(orig)
+                o = orig
                 if o._taint[0] <= k.start <= o._taint[-1]:
                     assert o._taint[0] <= k.stop <= o._taint[-1]+1
                     to_rem.append(k)
@@ -80,7 +80,7 @@ class V:
             self._index_map[range(o._taint[0], o._taint[-1]+1)] = repl
             return
 
-        sorig = get_t(orig)
+        sorig = orig
         # get starting point.
         taintkey, reprange = taintft
         my_str = self._index_map[taintkey]
@@ -128,7 +128,7 @@ def get_grammar(assignments):
             # each repl is a dict
             for repl in repl_alternatives:
                 i += 1
-                if get_t(value):
+                if type(value) is tstr.tstr:
                     # if value taint is a proper subset of repl taint
                     r = repl.include(value)
                     if r:
