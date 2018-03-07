@@ -661,3 +661,7 @@ for name, fn in inspect.getmembers(str, callable):
             ]:
         setattr(tstr, name, make_str_wrapper(fn))
 
+def get_t(v):
+    if type(v) is tstr: return v
+    if hasattr(v, '__dict__') and '_tstr' in v.__dict__: return get_t(v._tstr)
+    return None

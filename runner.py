@@ -2,6 +2,8 @@ import microjson
 import tstr
 import sys
 import miner as Gm
+import mtrace
+import refine
 
 INPUTS = [
    # '1',
@@ -21,16 +23,16 @@ if __name__ == "__main__":
     for _i in INPUTS:
         i = tstr.tstr(_i)
         Current = i
-        Gm.Vars.init(i)
+        mtrace.Vars.init(i)
         oldtrace = sys.gettrace()
-        sys.settrace(Gm.traceit)
+        sys.settrace(mtrace.traceit)
         o = microjson.from_json(i)
         sys.settrace(oldtrace)
-        traces.append((i, Gm.Vars.defs))
+        traces.append((i, mtrace.Vars.defs))
     grammar = Gm.get_merged_grammar(traces)
     print()
     # Output it
     print("Merged grammar ->\n" + Gm.grammar_to_string(grammar))
     print()
-    g = Gm.filter_redundant(grammar)
-    print("Filtered grammar ->\n" + Gm.grammar_to_string(Gm.filter_unused(g)))
+    g = refine.filter_unused(refine.filter_redundant(grammar))
+    print("Filtered grammar ->\n" + Gm.grammar_to_string(g))
