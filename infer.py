@@ -5,7 +5,7 @@ import pickle
 
 if __name__ == "__main__":
     # Infer grammar
-    traces = pickle.load(open( ".traces.p", "rb" ))
+    traces = pickle.load(open( "traces.p", "rb" ))
     grammar = Gm.infer_grammar(traces)
     print()
     # Output it

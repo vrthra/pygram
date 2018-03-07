@@ -28,4 +28,4 @@ if __name__ == "__main__":
         o = microjson.from_json(i)
         sys.settrace(oldtrace)
         traces.append((i, mtrace.Vars.defs))
-    pickle.dump(traces, open( ".traces.p", "wb" ) )
+    pickle.dump(traces, open( "traces.p", "wb" ) )
