@@ -26,12 +26,18 @@ class V:
             sorted(self._index_map.keys(), key=lambda a: a.start)])
         return res
 
+    def __repr__(self):
+        v = str(self)
+        return 'V:%s' % v
+
     def cur_taint(self):
         t = [-1] * len(self.v)
         for k in sorted(self._index_map.keys(), key=lambda a: a.start):
             v = self._index_map[k]
             if type(v) is tstr.tstr:
                 t[k.start:k.stop] = v._taint
+            #else:
+            #    assert False
         return t
 
     def _tinclude(self, o):
@@ -64,7 +70,7 @@ class V:
             return None
         return None
 
-    def replace(self, to_replace, orig, repl):
+    def replace(self, orig, repl):
         taintft = self._tinclude(orig)
         if not taintft:
             # remove every range that is completely contained
@@ -116,28 +122,18 @@ def get_grammar(assignments):
     # 1. We search for occurrences of VALUE in the grammar
     # 2. We replace them by $VAR
     # 3. We add a new rule $VAR -> VALUE to the grammar
-    i = 0
     my_grammar = {}
+    # all values are tainted strings.
     for var, value in assignments.items():
-        i += 1
+        assert type(value) is tstr.tstr
         nt_var = nonterminal(var)
         append = False
         for key, repl_alternatives in my_grammar.items():
-            i += 1
-            alt = set()
-            # each repl is a dict
-            for repl in repl_alternatives:
-                i += 1
-                if type(value) is tstr.tstr:
-                    # if value taint is a proper subset of repl taint
-                    r = repl.include(value)
-                    if r:
-                        repl.replace(r, value, nt_var)
-                        append = True
-                elif type(value) is str and value in repl.v:
-                    assert False
-                alt.add(repl)
-            my_grammar[key] = alt
+            # if value taint is a proper subset of repl taint
+            res = [repl for repl in repl_alternatives if repl.include(value)]
+            for repl in res:
+                repl.replace(value, nt_var)
+                append = True
         if append or not my_grammar:
             my_grammar[nt_var] = {V(value)}
     return my_grammar
