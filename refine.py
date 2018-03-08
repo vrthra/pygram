@@ -3,7 +3,7 @@ import grammar
 def filter_unused(grammar):
     while True:
         values = grammar.values()
-        keys = set(grammar.keys()) - {'START'}
+        keys = set(grammar.keys()) - {'$START'}
         for k in grammar.keys():
             for v in values:
                 for rule in v:
@@ -34,7 +34,7 @@ def filter_redundant(grammar):
     for k in grammar.keys():
         ids = [i for i,x in enumerate(vs) if k in x]
         if ids:
-            to_remove[k] = [ks[j] for j in ids if ks[j] != 'START']
+            to_remove[k] = [ks[j] for j in ids if ks[j] != '$START']
 
     new_grammar = {}
     for k,vs in grammar.items():

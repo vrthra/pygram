@@ -4,7 +4,7 @@ ENV=$(debug)
 traces.g: traces.p
 	python3 $(ENV) ./infer.py
 
-traces.p:
+traces.p: extract.py
 	./extract.py
 
 show:

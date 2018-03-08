@@ -9,6 +9,8 @@ class Grammar:
     def items(self): return self._dict.items()
     def __delitem__(self, key): del self._dict[key]
     def __missing__(self, key): return set()
+    def get_dict(self):
+        return {str(k):v for k,v in self._dict.items()}
 
     def __str__(self):
         def djs_to_string(djs):
