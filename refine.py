@@ -3,12 +3,11 @@ import grammar
 def filter_unused(grammar):
     while True:
         values = grammar.values()
-        keys = set(grammar.keys())
-        keys.remove('START')
+        keys = set(grammar.keys()) - {'START'}
         for k in grammar.keys():
             for v in values:
-                for iv in v:
-                    if k in str(iv):
+                for rule in v:
+                    if k in rule.value():
                         keys.remove(k)
                         break
                 else:

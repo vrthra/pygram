@@ -3,16 +3,17 @@
 import pudb; brk = pudb.set_trace
 import grammar as g
 
-class V:
-    def __init__(self, v):
+class Rule:
+    def __init__(self,k, v):
+        self.k = k
+        self.v = v
         self._taint = v._taint
-        self._rindex = {tainted_range(self._taint): v}
+        self._rindex = {tainted_range(self): v}
 
     def ranges(self): return sorted(self._rindex, key=lambda a: a.start)
     def __lt__(self, o): return str(self).__lt__(str(o))
-    def __repr__(self): return 'V:%s' % self.value()
+    def __repr__(self): return 'Rule[%s]:=%s' % (self.k, self.value())
     def value(self): return ''.join(self._rindex[k] for k in self.ranges())
-
 
     def cur_taint(self):
         t = [-1] * len(self.taint)
@@ -48,21 +49,25 @@ class V:
         return None
 
     def replace(self, o, repl):
+        print("in ", repr(self), "replace", o, "with", repl)
         # we need to handle these
         # s = peek(1)
         # if s == 't': read_str('true')
         # or
         # i = read_num(), point = read('.'), d = read_num()
         # number = i + point + d
-        trange = tainted_range(o._taint)
+        trange = tainted_range(o)
         keytaint = self._tinclude(o)
         if not keytaint:
             # the complete taint range is not contained, but we are still
             # inclued in the original. It means that an inbetween variable has
             # obscured our inclusion.
-            to_rem = self.keys_enclosed_by(trange)
-            for k in to_rem: del self._rindex[k]
-            self._rindex[trange] = repl
+            # So what we need to do is to flip the positions.
+            # eclipsed = self.keys_enclosed_by(trange)
+            # for k in eclipsed:
+            #     del self._rindex[k]
+            # self._rindex[trange] = repl
+            pass
         else:
             # get starting point.
             my_str = self._rindex[keytaint]
@@ -76,7 +81,7 @@ class V:
             if end_range: self._rindex[end_range] = my_str[splitA + len(o):]
 
 def nonterminal(var): return "$" + var.upper()
-def tainted_range(tarr): return range(tarr[0], tarr[-1]+1)
+def tainted_range(o): return range(o._taint[0], o._taint[-1]+1)
 
 # Obtain a grammar for a specific input
 def get_grammar(assignments):
@@ -84,11 +89,11 @@ def get_grammar(assignments):
     # all values are tainted strings.
     for var, value in assignments.items():
         append = False if my_grammar else True
-        for _, repl_alternatives in my_grammar.items():
+        for key, repl_alternatives in my_grammar.items():
             res = [repl for repl in repl_alternatives if repl.include(value)]
             for repl in res: repl.replace(value, var)
             append = True
-        if append: my_grammar[var] = {V(value)}
+        if append: my_grammar[var] = {Rule(var, value)}
     return my_grammar
 
 def merge_grammars(g1, g2):
